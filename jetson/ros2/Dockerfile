@@ -28,4 +28,5 @@ RUN apt update \
 WORKDIR /config/rviz
 RUN wget https://raw.githubusercontent.com/intel/ros2_intel_realsense/master/realsense_ros2_camera/rviz/ros2.rviz
 
-RUN source /opt/ros/dashing/setup.bash
+WORKDIR /work
+# ENTRYPOINT ["source", "/opt/ros/dashing/setup.bash", "&&", "bash"]
