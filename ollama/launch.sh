@@ -1,11 +1,11 @@
 #!/bin/bash
 
-if [ -z "$OLLAMA_CACHE" ]; then
-  echo "OLLAMA_CACHE is not set"
+if [ -z "$OLLAMA_CACHE_DIR" ]; then
+  echo "OLLAMA_CACHE_DIR is not set"
   exit 1
 fi
 
-ollama_cache="$(realpath "$OLLAMA_CACHE")"
+ollama_cache="$(realpath "$OLLAMA_CACHE_DIR")"
 container_name="ollama"
 port=${OLLAMA_PORT:-11434}
 
@@ -52,7 +52,7 @@ else
       docker logs "$container_name"
       ;;
     run)
-      echo docker exec -it "$container_name" ollama "$@"
+      docker exec -it "$container_name" ollama "$@"
       ;;
     *)
       docker exec "$container_name" ollama "$@"

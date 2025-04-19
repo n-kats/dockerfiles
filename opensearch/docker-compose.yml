@@ -1,6 +1,8 @@
 services:
   opensearch:
-    image: opensearchproject/opensearch:latest
+    build:
+      context: docker
+      dockerfile: Dockerfile
     container_name: opensearch
     environment:
       - DISABLE_SECURITY_PLUGIN=true
@@ -9,6 +11,8 @@ services:
       - plugins.security.ssl.http.enabled=true
       - discovery.type=single-node
       - script.painless.regex.enabled=true
+      # - opensearch_security.disabled=true
+
     ulimits:
       memlock:
         soft: -1
@@ -33,6 +37,7 @@ services:
     environment:
       - OPENSEARCH_HOSTS=["http://opensearch:9200"]
       - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+      # - opensearch_security.disabled=true
     networks:
       - opensearch-net
 
