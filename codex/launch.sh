@@ -33,13 +33,14 @@ if [ ! -d $work_dir ]; then
 fi
 
 if [ "$build" -eq 1 ]; then
+  set -e
   (
     echo "[INFO] Building Docker image"
     docker build --build-arg TIMESTAMP=$(date +%Y%m%d_%H%M%S) -t my-codex "$dockerfile_dir"
   )
 fi
 
-home_dir_in_docker=/home/ubuntu
+home_dir_in_docker=/root
 docker run --rm -it \
   -v "$src_dir/codex:/src" \
   -v "$cache_dir/cache:$home_dir_in_docker/.cache" \
@@ -52,6 +53,7 @@ docker run --rm -it \
   -v "$work_dir:/workspace" \
   -w "/workspace" \
   -u "$(id -u):$(id -g)" \
+  --user root \
   --network host \
   my-codex bash -c "
 alias apply_patch=patch

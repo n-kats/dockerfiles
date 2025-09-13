@@ -24,6 +24,5 @@ ARG TIMESTAMP=YYYYMMDD_HHMMSS
 RUN touch /build_timestamp_$TIMESTAMP
 RUN npm install -g @openai/codex
 
-USER root
 WORKDIR /workspace
 CMD ["/bin/bash"]
