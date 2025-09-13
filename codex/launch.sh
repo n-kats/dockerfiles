@@ -5,17 +5,16 @@ if [ -z "$CODEX_CACHE_DIR" ]; then
   exit 1
 fi
 
+dockerfile_dir="$(dirname "$(realpath "$0")")/docker"
 cache_dir="$(realpath "$CODEX_CACHE_DIR")"
 src_dir="$cache_dir/src"
 container_name="codex"
 work_dir="$(pwd)"
-options=()
-update=0
+docker_options=()
 build=0
 for arg in "$@"; do
   case $arg in
     --update)
-      update=1
       build=1
       ;;
     --workdir)
@@ -33,35 +32,28 @@ if [ ! -d $work_dir ]; then
   exit 1
 fi
 
-mkdir -p "$src_dir"
-if [ ! -d "$src_dir/codex" ]; then
-  echo
-  git clone --recursiv https://github.com/openai/codex.git "$src_dir/codex"
-  build=1
-fi
-
-if [ "$update" -eq 1 ]; then
-  (
-    echo "[INFO] Updating source code"
-    cd "$src_dir/codex"
-    git fetch --all --tags
-    git checkout main
-    git pull
-  )
-fi
-
 if [ "$build" -eq 1 ]; then
   (
     echo "[INFO] Building Docker image"
-    cd "$src_dir/codex/codex-cli"
-    bash scripts/build_container.sh
+    docker build --build-arg TIMESTAMP=$(date +%Y%m%d_%H%M%S) -t my-codex "$dockerfile_dir"
   )
 fi
 
+home_dir_in_docker=/home/ubuntu
 docker run --rm -it \
-  -e OPENAI_API_KEY="$OPENAI_API_KEY" \
   -v "$src_dir/codex:/src" \
-  -v "$work_dir:/workdir" \
-  -w "/workdir" \
+  -v "$cache_dir/cache:$home_dir_in_docker/.cache" \
+  -v "$cache_dir/local:$home_dir_in_docker/.local" \
+  -v "$cache_dir/codex:$home_dir_in_docker/.codex" \
+  -v "$cache_dir/npm_cache:$home_dir_in_docker/.npm" \
+  -v "$cache_dir/pnpm_cache:$home_dir_in_docker/.pnpm-store" \
+  -v "$cache_dir/yarn_cache:$home_dir_in_docker/.cache/yarn" \
+  -v "$cache_dir/bun_cache:$home_dir_in_docker/.bun" \
+  -v "$work_dir:/workspace" \
+  -w "/workspace" \
   -u "$(id -u):$(id -g)" \
-  codex codex "${options[@]}"
+  --network host \
+  my-codex bash -c "
+alias apply_patch=patch
+codex "${options[@]}"
+"

@@ -6,6 +6,10 @@ if [ -z "$OLLAMA_CACHE_DIR" ]; then
 fi
 
 ollama_cache="$(realpath "$OLLAMA_CACHE_DIR")"
+if [ ! -d "$ollama_cache" ]; then
+  echo "[ERROR] OLLAMA_CACHE_DIR ($ollama_cache) is not a directory"
+  exit 1
+fi
 container_name="ollama"
 port=${OLLAMA_PORT:-11434}
 
