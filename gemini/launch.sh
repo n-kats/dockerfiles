@@ -1,17 +1,16 @@
 #!/bin/bash
 
-if [ -z "$CODEX_CACHE_DIR" ]; then
-  echo "CODEX_CACHE_DIR is not set"
+if [ -z "$GEMINI_CLI_CACHE_DIR" ]; then
+  echo "GEMINI_CLI_CACHE_DIR is not set"
   exit 1
 fi
 
 dockerfile_dir="$(dirname "$(realpath "$0")")/docker"
-cache_dir="$(realpath "$CODEX_CACHE_DIR")"
+cache_dir="$(realpath "$GEMINI_CLI_CACHE_DIR")"
 work_dir="$(pwd)"
 docker_options=()
 build=0
 skip=0
-use_api_key=0
 show_help=0
 for arg in "$@"; do
   if [ "$skip" -eq 1 ]; then
@@ -39,9 +38,6 @@ for arg in "$@"; do
       docker_options+=("-v" "$2")
       skip=1
       ;;
-    --api)
-      use_api_key=1
-      ;;
     --help)
       show_help=1
       options+=("$arg")
@@ -58,8 +54,8 @@ if [ ! -d $work_dir ]; then
   exit 1
 fi
 
-# Build image automatically if it does not exist
-if ! docker image inspect my-codex >/dev/null 2>&1; then
+// Build image automatically if it does not exist
+if ! docker image inspect my-gemini-cli >/dev/null 2>&1; then
   build=1
 fi
 
@@ -67,27 +63,17 @@ if [ "$build" -eq 1 ]; then
   set -e
   (
     echo "[INFO] Building Docker image"
-    docker build --build-arg TIMESTAMP=$(date +%Y%m%d_%H%M%S) -t my-codex "$dockerfile_dir"
+    docker build --build-arg TIMESTAMP=$(date +%Y%m%d_%H%M%S) -t my-gemini-cli "$dockerfile_dir"
   )
 fi
 
 mount_dir="$cache_dir/mount/user/ubuntu"
 home_dir_in_docker="/home/ubuntu"
-if [ "$use_api_key" -eq 1 ]; then
-  codex_dir_name="codex_with_api_key"
-  mount_cache_dir="cache_with_api_key"
-  mount_local_dir="local_with_api_key"
-  docker_options+=("-e" "OPENAI_API_KEY=$OPENAI_API_KEY")
-else
-  codex_dir_name="codex"
-  mount_cache_dir="cache"
-  mount_local_dir="local"
-fi
 
 for dir in \
-  $mount_cache_dir:.cache \
-  $mount_local_dir:.local \
-  $codex_dir_name:.codex \
+  gemini_cli_cache:.cache \
+  gemini_cli_local:.local \
+  gemini_cli_config:.gemini \
   npm_cache:.npm \
   pnpm_cache:.pnpm-store \
   bun_cache:.bun \
@@ -104,27 +90,26 @@ done
 
 if [ "$show_help" -eq 1 ]; then
   cat << EOF
-使い方: codex [--update] [--workdir <dir>] [--setup <script>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のcodexオプション]
+使い方: gemini [--update] [--workdir <dir>] [--setup <script>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のgeminiオプション]
 
 オプション:
-  --update              codexを更新して起動
+  --update              gemini用Dockerイメージを更新して起動
   --workdir <dir>       対象ディレクトリ（デフォルトはカレントディレクトリ）
   --setup <script>      起動時に実行するセットアップスクリプト
   -e, --env <VAR=VAL>   Dockerコンテナに環境変数を渡す
   -v, --volume <SRC:DEST> Dockerコンテナにボリュームをマウントする
-  --api                 OpenAI APIキーを使用（環境変数OPENAI_API_KEYが必要）
-  --help                このヘルプメッセージとcodexのヘルプを表示
+  --help                このヘルプメッセージとgeminiのヘルプを表示
 EOF
 fi
 
-command_str="codex ${options[@]}"
+command_str="gemini ${options[@]}"
 docker run --rm -it \
   -v "$work_dir:/workspace" \
   -w "/workspace" \
   -u "$(id -u):$(id -g)" \
   --network host \
   "${docker_options[@]}" \
-  my-codex bash -c "
+  my-gemini-cli bash -c "
 if [ -n \"$setup_script\" ]; then
   if [ -f \"$setup_script\" ]; then
     echo \"[INFO] Running setup script: $setup_script\"

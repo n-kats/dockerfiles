@@ -4,7 +4,7 @@ if [ -z "$DIFY_CACHE_DIR" ]; then
   echo "DIFY_CACHE_DIR is not set"
   exit 1
 fi
-
+echo "[INFO] Using DIFY_CACHE_DIR: $DIFY_CACHE_DIR"
 cache_dir="$(realpath "$DIFY_CACHE_DIR")"
 src_dir="$cache_dir/src"
 
@@ -30,6 +30,10 @@ env_file="$here/.env"
 container_name="dify"
 
 if ! docker ps --format '{{.Image}}' | grep -q 'dify'; then
+  if [ "$1" = "down" ] ; then
+    echo "[INFO] No 'dify' container is running."
+    exit 0
+  fi
   (
     cd "$src_dir/docker"
     docker compose --env-file "$env_file" up --build -d

@@ -20,7 +20,7 @@ RUN corepack enable \
 
 ARG TIMESTAMP=YYYYMMDD_HHMMSS
 RUN touch /build_timestamp_$TIMESTAMP
-RUN npm install -g @openai/codex
+RUN npm install -g @google/gemini-cli
 
 USER ubuntu
 COPY setup.sh /home/ubuntu/setup.sh
