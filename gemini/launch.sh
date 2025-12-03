@@ -54,7 +54,6 @@ if [ ! -d $work_dir ]; then
   exit 1
 fi
 
-// Build image automatically if it does not exist
 if ! docker image inspect my-gemini-cli >/dev/null 2>&1; then
   build=1
 fi
