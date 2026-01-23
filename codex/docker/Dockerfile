@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl git ca-certificates unzip xz-utils \
+    curl git ca-certificates ripgrep unzip xz-utils \
     make sudo chromium-browser \
     python3 python3-pip python3-venv pipx \
     build-essential graphviz-dev pkg-config \

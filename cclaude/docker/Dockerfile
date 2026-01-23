@@ -55,28 +55,7 @@ RUN set -eux; \
 
 ARG TIMESTAMP=YYYYMMDD_HHMMSS
 RUN touch /build_timestamp_$TIMESTAMP
-RUN set -eux; \
-  repo="n-kats/codex"; \
-  tmp_dir="$(mktemp -d)"; \
-  curl -fsSL -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
-    "https://api.github.com/repos/${repo}/releases/latest" >"${tmp_dir}/release.json"; \
-  archive_count="$(jq '[.assets[]? | select(.name | endswith(".tar.gz"))] | length' "${tmp_dir}/release.json")"; \
-  if [ "$archive_count" -ne 1 ]; then echo "Expected exactly 1 tar.gz asset in latest release, found: $archive_count" >&2; cat "${tmp_dir}/release.json" >&2; exit 1; fi; \
-  url="$(jq -r '.assets[]? | select(.name | endswith(".tar.gz")) | .browser_download_url' "${tmp_dir}/release.json")"; \
-  archive_path="${tmp_dir}/codex.tar.gz"; \
-  curl -fL --retry 3 --retry-delay 2 -o "${archive_path}" "${url}"; \
-  mkdir -p "${tmp_dir}/extract"; \
-  tar -xzf "${archive_path}" -C "${tmp_dir}/extract"; \
-  if [ -f "${tmp_dir}/extract/codex" ]; then \
-    install -m 0755 "${tmp_dir}/extract/codex" /usr/local/bin/codex; \
-  else \
-    bin_path="$(find "${tmp_dir}/extract" -type f -name codex -perm -111 | head -n 1)"; \
-    if [ -z "$bin_path" ]; then echo "'codex' binary not found in archive" >&2; exit 1; fi; \
-    install -m 0755 "$bin_path" /usr/local/bin/codex; \
-  fi; \
-  setcap 'cap_setuid,cap_setgid=ep' /usr/local/bin/codex; \
-  getcap /usr/local/bin/codex; \
-  rm -rf "$tmp_dir"
+RUN npm install -g @anthropic-ai/claude-code
 
 USER ubuntu
 COPY setup.sh /home/ubuntu/setup.sh

@@ -1,0 +1,16 @@
+[custom.exec]
+worker_user = "assistant"
+
+[shell_environment_policy]
+inherit = "core"
+ignore_default_excludes = false
+experimental_use_profile = false
+include = [
+  "PATH",
+  "HOME",
+  "USER",
+  "SHELL",
+  "LANG",
+  "LC_ALL",
+  "UV_*",
+]

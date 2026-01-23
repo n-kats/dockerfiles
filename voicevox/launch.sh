@@ -13,7 +13,7 @@ function show_help() {
 }
 
 function launch_container() {
-  if ! docker ps -a --format '{{.Names}}' | grep -wq "$container_name"; then
+  if ! docker ps -a --format '{{json .Names}}' | jq -e --arg name "$container_name" '. == $name' > /dev/null; then
     echo "[INFO] ${container_name} コンテナが存在しないので作成します"
     docker run --gpus=all \
       -d \

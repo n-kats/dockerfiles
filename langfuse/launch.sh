@@ -15,9 +15,9 @@ if [ ! -d "$tools_git_cache" ]; then
   echo "[INFO] ${tool_name} リポジトリが存在しないのでクローンします"
   mkdir -p "$tools_git_cache"
   git clone "$repo" "$tools_git_cache"
-else
-  echo "[INFO] ${tool_name} リポジトリが存在するのでpullします"
-  git -C "$tools_git_cache" pull
+# else
+#   echo "[INFO] ${tool_name} リポジトリが存在するのでpullします"
+#   git -C "$tools_git_cache" pull
 fi
 
 if ! docker ps -a --format '{{.Names}}' | grep -wq "$container_name"; then
