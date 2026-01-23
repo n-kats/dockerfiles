@@ -20,8 +20,6 @@ skip=0
 show_help=0
 show_init_help=0
 do_init=0
-DEFAULT_MODEL="gpt-5.2"
-MODEL="$DEFAULT_MODEL"
 LITELLM_URL=""
 litellm_url_set=0
 setup_script=""
@@ -53,10 +51,6 @@ for arg in "$@"; do
       ;;
     --setup)
       setup_script="$2"
-      skip=1
-      ;;
-    --model)
-      MODEL="${2:?Error: --model requires a value.}"
       skip=1
       ;;
     --litellm-url)
@@ -234,13 +228,12 @@ docker_options+=("-v" "$claude_json:$home_dir_in_docker/.claude.json")
 
 if [ "$show_help" -eq 1 ]; then
   cat << EOF
-使い方: cclaude [--update] [--workdir <dir>] [--setup <script>] [--model <name>] [--litellm-url <url>] [--env-file <file>] [--claude-json <file>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のclaudeオプション]
+使い方: cclaude [--update] [--workdir <dir>] [--setup <script>] [--litellm-url <url>] [--env-file <file>] [--claude-json <file>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のclaudeオプション]
 
 オプション:
   --update              Claude CLI のDockerイメージを更新して起動
   --workdir <dir>       対象ディレクトリ（デフォルトはカレントディレクトリ）
   --setup <script>      起動時に実行するセットアップスクリプト
-  --model <name>        使用するモデル名（デフォルトは gpt-5.2）
   --litellm-url <url>   LiteLLM のベースURL（指定時のみLiteLLM経由にする）
   --env-file <file>     Dockerコンテナに環境変数を渡す
   --claude-json <file>  claude.json を指定してマウントする
@@ -262,7 +255,7 @@ if [ "$litellm_url_set" -eq 1 ] && [ -n "$LITELLM_URL" ]; then
   docker_options+=("-e" "ANTHROPIC_BASE_URL=$LITELLM_URL")
 fi
 
-command_str="claude --model \"$MODEL\" ${options[@]}"
+command_str="claude ${options[@]}"
 
 docker run --rm \
   -v "$work_dir:/workspace" \

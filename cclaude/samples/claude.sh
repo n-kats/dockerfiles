@@ -17,6 +17,7 @@ if [ -z "$litellm_url" ]; then
 fi
 
 cclaude "$@" "${CLAUDE_COMMON_ARGS[@]}" \
+  --model "gpt-5.2" \
   --litellm-url "$litellm_url" \
   --claude-json "_local/claude.json" \
   --setup "_local/setup_claude.sh" \
