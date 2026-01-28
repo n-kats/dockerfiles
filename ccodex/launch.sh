@@ -12,6 +12,7 @@ show_help=0
 show_init_help=0
 do_init=0
 codex_homes_dir=""
+host_gitconfig=""
 input_tmpfile=""
 if [ ! -t 0 ]; then
   input_tmpfile="$(mktemp)"
@@ -43,6 +44,10 @@ for arg in "$@"; do
       ;;
     --env-file)
       docker_options+=("--env-file" "$2")
+      skip=1
+      ;;
+    --gitconfig)
+      host_gitconfig="$(realpath -m "$2")"
       skip=1
       ;;
     -e|--env)
@@ -163,6 +168,7 @@ for user in ubuntu assistant; do
   for dir in \
     $mount_cache_dir:.cache \
     $mount_local_dir:.local \
+    config:.config \
     npm_cache:.npm \
     pnpm_cache:.pnpm-store \
     bun_cache:.bun \
@@ -177,6 +183,15 @@ for user in ubuntu assistant; do
     docker_options+=("-v" "$full_path:/home/$user/$path")
   done
 done
+
+if [ -n "$host_gitconfig" ]; then
+  if [ ! -f "$host_gitconfig" ]; then
+    echo "[ERROR] gitconfig not found: $host_gitconfig"
+    exit 1
+  fi
+  docker_options+=("-v" "$host_gitconfig:/tmp/host_gitconfig:ro")
+  docker_options+=("-e" "CCODEX_HOST_GITCONFIG=/tmp/host_gitconfig")
+fi
 
 if [ -n "$codex_homes_dir" ]; then
   codex_home_host_dir="$codex_homes_dir/$codex_dir_name"
@@ -193,13 +208,14 @@ docker_options+=("-v" "$codex_home_host_dir:/home/ubuntu/.codex")
 
 if [ "$show_help" -eq 1 ]; then
   cat << EOF
-使い方: ccodex [--update] [--workdir <dir>] [--setup <script>] [--codex-homes-dir <dir>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のcodexオプション]
+使い方: ccodex [--update] [--workdir <dir>] [--setup <script>] [--codex-homes-dir <dir>] [--gitconfig <path>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のcodexオプション]
 
 オプション:
   --update              codexを更新して起動
   --workdir <dir>       対象ディレクトリ（デフォルトはカレントディレクトリ）
   --setup <script>      起動時に実行するセットアップスクリプト
   --codex-homes-dir <dir> ~/.codex を <dir>/{codex,codex_with_api} からマウント
+  --gitconfig <path>    ホストの gitconfig を /tmp/host_gitconfig に読み取り専用でマウント（assistant側のglobal設定からinclude）
   -e, --env <VAR=VAL>   Dockerコンテナに環境変数を渡す
   -v, --volume <SRC:DEST> Dockerコンテナにボリュームをマウントする
   --api                 OpenAI APIキーを使用（環境変数OPENAI_API_KEYが必要）
@@ -226,8 +242,33 @@ docker run --rm \
   --network host \
   "${docker_options[@]}" \
   "$image_name" bash -c "
-chmod 710 \"$home_dir_in_docker\" 2>/dev/null || true
-chmod 700 \"$home_dir_in_docker/.codex\" 2>/dev/null || true
+umask 000
+home_dir_in_docker=\"\$(getent passwd \"\$(id -u)\" 2>/dev/null | cut -d: -f6)\"
+if [ -z \"\$home_dir_in_docker\" ]; then
+  home_dir_in_docker=\"\${HOME:-/home/ubuntu}\"
+fi
+if [ -z \"\$home_dir_in_docker\" ]; then
+  home_dir_in_docker=/home/ubuntu
+fi
+chmod 710 \"\$home_dir_in_docker\" 2>/dev/null || true
+chmod 700 \"\$home_dir_in_docker/.codex\" 2>/dev/null || true
+
+export GIT_CONFIG_GLOBAL=\"\$home_dir_in_docker/.config/git/config\"
+mkdir -p \"\$(dirname \"\$GIT_CONFIG_GLOBAL\")\"
+touch \"\$GIT_CONFIG_GLOBAL\"
+chmod a+rw \"\$GIT_CONFIG_GLOBAL\" 2>/dev/null || true
+
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  if ! git config --global --get-all safe.directory | rg -Fx \"/workspace\" >/dev/null 2>&1; then
+    git config --global --add safe.directory /workspace
+  fi
+fi
+
+if [ -n \"\$CCODEX_HOST_GITCONFIG\" ]; then
+  if ! rg -Fq \"path = \$CCODEX_HOST_GITCONFIG\" \"\$GIT_CONFIG_GLOBAL\"; then
+    printf '\\n[include]\\n  path = %s\\n' \"\$CCODEX_HOST_GITCONFIG\" >>\"\$GIT_CONFIG_GLOBAL\"
+  fi
+fi
 
 if [ -n \"$setup_script\" ]; then
   if [ -f \"$setup_script\" ]; then
