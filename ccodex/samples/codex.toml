@@ -14,3 +14,6 @@ include = [
   "LC_ALL",
   "UV_*",
 ]
+
+[projects."/workspace"]
+trust_level = "trusted"

@@ -93,31 +93,65 @@ if [ "$show_init_help" -eq 1 ]; then
   echo ""
   echo "[_local/setup.sh]"
   cat "${samples_dir}/setup.sh"
+  echo ""
+  echo "[_local/templates/template_AGENTS.md]"
+  cat "${samples_dir}/template_AGENTS.md"
   exit 0
 fi
 
 if [ "$do_init" -eq 1 ]; then
   samples_dir="${this_script_dir}/samples"
   local_dir="${work_dir}/_local"
+  templates_dir="${local_dir}/templates"
+  agents_md="${work_dir}/AGENTS.md"
 
   if [ ! -d "$work_dir" ]; then
     echo "[ERROR] Work directory does not exist: $work_dir"
     exit 1
   fi
 
-  echo "[INFO] Initializing: $local_dir"
+  relpath_in_workdir() {
+    local path="$1"
+    if [[ "$path" == "$work_dir" ]]; then
+      echo "."
+      return
+    fi
+    if [[ "$path" == "$work_dir/"* ]]; then
+      echo "${path#$work_dir/}"
+      return
+    fi
+    echo "$path"
+  }
+
+  echo "[INFO] Initializing: $(relpath_in_workdir "$local_dir")"
   mkdir -p "$local_dir"
 
   for file in codex.sh codex.toml setup.sh; do
     src="${samples_dir}/${file}"
     dst="${local_dir}/${file}"
     if [ -e "$dst" ]; then
-      echo "[INFO] Skipping (already exists): $dst"
+      echo "[INFO] Skipping (already exists): $(relpath_in_workdir "$dst")"
       continue
     fi
     cp "$src" "$dst"
-    echo "[INFO] Created: $dst"
+    echo "[INFO] Created: $(relpath_in_workdir "$dst")"
   done
+
+  src="${samples_dir}/template_AGENTS.md"
+  dst="${templates_dir}/template_AGENTS.md"
+  mkdir -p "$templates_dir"
+  if [ -e "$dst" ]; then
+    echo "[INFO] Skipping (already exists): $(relpath_in_workdir "$dst")"
+  else
+    cp "$src" "$dst"
+    echo "[INFO] Created: $(relpath_in_workdir "$dst")"
+  fi
+
+  if [ ! -f "$agents_md" ]; then
+    echo "[NOTE] AGENTS.md が見つかりません"
+    echo "[NOTE] AGENTS.md を作成する際は、コーディングエージェントに $(relpath_in_workdir "$dst") を参照させてください"
+    echo "[NOTE] このリポジトリの目的などを考え、AGENTS.md を作成することをおすすめします。"
+  fi
 
   chmod +x "${local_dir}/codex.sh" "${local_dir}/setup.sh" 2>/dev/null || true
   exit 0
