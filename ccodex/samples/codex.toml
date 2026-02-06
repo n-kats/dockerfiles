@@ -1,3 +1,5 @@
+model = "gpt-5.2"
+model_reasoning_effort = "medium"
 [custom.exec]
 worker_user = "assistant"
 
