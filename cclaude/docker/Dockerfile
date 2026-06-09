@@ -55,7 +55,20 @@ RUN set -eux; \
 
 ARG TIMESTAMP=YYYYMMDD_HHMMSS
 RUN touch /build_timestamp_$TIMESTAMP
-RUN npm install -g @anthropic-ai/claude-code
+RUN set -eux; \
+  install_claude_code() { \
+    local user="$1"; \
+    local home="/home/$user"; \
+    mkdir -p "$home/.local"; \
+    chown -R "$user:$user" "$home/.local"; \
+    su -s /bin/bash "$user" -c "HOME='$home' npm_config_prefix='$home/.local' npm install -g @anthropic-ai/claude-code"; \
+    chown -R "$user:$user" "$home/.local"; \
+  }; \
+  install_claude_code ubuntu; \
+  install_claude_code assistant
+
+COPY run_claude.sh /usr/local/bin/claude
+RUN chmod 0755 /usr/local/bin/claude
 
 USER ubuntu
 COPY setup.sh /home/ubuntu/setup.sh

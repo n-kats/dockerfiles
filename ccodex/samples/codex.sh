@@ -1,6 +1,5 @@
 #!/bin/bash
 cd "$(dirname "$0")/.." || exit 1
-# eval "CODEX_COMMON_ARGS=(${CODEX_COMMON_ARGS_STR})"
 CODEX_COMMON_ARGS=()
 
 options=()

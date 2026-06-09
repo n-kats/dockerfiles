@@ -20,7 +20,7 @@ if [ ! -d "$tools_git_cache" ]; then
 #   git -C "$tools_git_cache" pull
 fi
 
-if ! docker ps -a --format '{{.Names}}' | grep -wq "$container_name"; then
+if [[ -z "$(docker ps -aq --filter "name=^/${container_name}$")" ]]; then
   echo "[INFO] ${container_name} コンテナが存在しないので作成します"
   (
     cd "$docker_compose_dir"

@@ -1,5 +1,33 @@
-model = "gpt-5.2"
+model = "gpt-5.4-mini"
 model_reasoning_effort = "medium"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+custom.user_shell.no_inject=true
+
+[sandbox_workspace_write]
+network_access = true
+
+[memories]
+generate_memories = false
+use_memories = false
+
+[features]
+unified_exec = true
+
+[tui.keymap.composer]
+submit = ["ctrl-enter", "ctrl-j"]
+
+[tui.keymap.editor]
+insert_newline = "enter"
+
+[tui]
+status_line = [
+  "model-with-reasoning",
+  "fast-mode",
+  "context-remaining",
+  "five-hour-limit",
+  "weekly-limit",
+]
 [custom.exec]
 worker_user = "assistant"
 
@@ -19,3 +47,20 @@ include = [
 
 [projects."/workspace"]
 trust_level = "trusted"
+
+[notice]
+fast_default_opt_out = true
+hide_rate_limit_model_nudge = true
+hide_full_access_warning = true
+
+[custom.user_shell_environment_policy]
+inherit = "core"
+set = { HOME = "/home/ubuntu", USER="ubuntu", UV_CACHE_DIR="/workspace/_cache/user_uv_cache", UV_PROJECT_ENVIRONMENT="/workspace/_cache/user_uv_venv"}
+
+[custom.assistant_shell_environment_policy]
+inherit = "core"
+set = { HOME = "/home/assistant", USER="assistant", UV_CACHE_DIR="/workspace/_cache/assistant_uv_cache", UV_PROJECT_ENVIRONMENT="/workspace/_cache/assistant_uv_venv"}
+
+[custom.theme.diff]
+add_line_bg = "#ccffcc"
+del_line_bg = "#cccccc"

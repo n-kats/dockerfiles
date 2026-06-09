@@ -25,6 +25,7 @@ litellm_url_set=0
 setup_script=""
 env_file=""
 claude_json=""
+run_user="assistant"
 envs=()
 volumes=()
 options=()
@@ -64,6 +65,10 @@ for arg in "$@"; do
       ;;
     --claude-json)
       claude_json="${2:?Error: --claude-json requires a value.}"
+      skip=1
+      ;;
+    --user)
+      run_user="${2:?Error: --user requires a value.}"
       skip=1
       ;;
     -e|--env)
@@ -162,7 +167,17 @@ if [ -n "$claude_json" ]; then
     exit 1
   fi
 else
-  claude_json="$cache_dir/mount/user/ubuntu/claude.json"
+  case "$run_user" in
+    ubuntu|assistant)
+      ;;
+    *)
+      echo "[ERROR] 未対応の --user 値です: $run_user"
+      echo "[ERROR] 使用可能な値: ubuntu, assistant"
+      exit 1
+      ;;
+  esac
+
+  claude_json="$cache_dir/mount/user/$run_user/claude.json"
   claude_json_dir="$(dirname "$claude_json")"
   if [ ! -d "$claude_json_dir" ]; then
     echo "[INFO] Creating directory: $claude_json_dir"
@@ -205,8 +220,15 @@ if [ -n "$input_tmpfile" ]; then
   docker_options+=("-v" "$input_tmpfile:/tmp/claude_stdin:ro")
 fi
 
-mount_dir="$cache_dir/mount/user/ubuntu"
-home_dir_in_docker="/home/ubuntu"
+docker_options+=("-e" "HOME=/home/$run_user")
+docker_options+=("-e" "USER=$run_user")
+docker_options+=("-e" "LOGNAME=$run_user")
+
+mount_user_dir="$run_user"
+docker_user="$run_user"
+
+mount_dir="$cache_dir/mount/user/$mount_user_dir"
+home_dir_in_docker="/home/$mount_user_dir"
 
 for dir in \
   claude_cache:.cache \
@@ -228,7 +250,7 @@ docker_options+=("-v" "$claude_json:$home_dir_in_docker/.claude.json")
 
 if [ "$show_help" -eq 1 ]; then
   cat << EOF
-使い方: cclaude [--update] [--workdir <dir>] [--setup <script>] [--litellm-url <url>] [--env-file <file>] [--claude-json <file>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のclaudeオプション]
+使い方: cclaude [--update] [--workdir <dir>] [--setup <script>] [--litellm-url <url>] [--env-file <file>] [--claude-json <file>] [--user <user>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のclaudeオプション]
 
 オプション:
   --update              Claude CLI のDockerイメージを更新して起動
@@ -237,6 +259,7 @@ if [ "$show_help" -eq 1 ]; then
   --litellm-url <url>   LiteLLM のベースURL（指定時のみLiteLLM経由にする）
   --env-file <file>     Dockerコンテナに環境変数を渡す
   --claude-json <file>  claude.json を指定してマウントする
+  --user <user>         Dockerコンテナの実行ユーザーを指定（ubuntu, assistant）
   -e, --env <VAR=VAL>   Dockerコンテナに環境変数を渡す
   -v, --volume <SRC:DEST> Dockerコンテナにボリュームをマウントする
   --init                _local/ に設定ファイルを作成（既存はスキップ）
@@ -255,12 +278,15 @@ if [ "$litellm_url_set" -eq 1 ] && [ -n "$LITELLM_URL" ]; then
   docker_options+=("-e" "ANTHROPIC_BASE_URL=$LITELLM_URL")
 fi
 
+docker_options+=("-e" "NO_COLOR=1")
+docker_options+=("-e" "FORCE_COLOR=0")
+
 command_str="claude ${options[@]}"
 
 docker run --rm \
   -v "$work_dir:/workspace" \
   -w "/workspace" \
-  -u "$(id -u):$(id -g)" \
+  -u "$docker_user" \
   --network host \
   "${docker_options[@]}" \
   "$cli_image_name" bash -c "

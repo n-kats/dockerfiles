@@ -3,20 +3,41 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Asia/Tokyo \
     LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    LESSCHARSET=utf-8 \
     PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     BUN_INSTALL=/usr/local/bun
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl git gh jq ca-certificates libcap2-bin ripgrep unzip xz-utils \
-    make sudo chromium-browser \
-    python3 python3-pip python3-venv pipx \
-    build-essential graphviz-dev pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    bubblewrap \
+    build-essential \
+    ca-certificates \
+    chromium-browser \
+    curl \
+    gh \
+    git \
+    graphviz-dev \
+    jq \
+    libcap2-bin \
+    make \
+    pipx \
+    pkg-config \
+    python3 \
+    python3-pip \
+    python3-venv \
+    ripgrep \
+    sudo \
+    unzip \
+    xz-utils \
+ && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
  && apt-get install -y nodejs \
  && rm -rf /var/lib/apt/lists/*
+
+RUN git config --system i18n.commitEncoding utf-8 \
+ && git config --system i18n.logOutputEncoding utf-8 \
+ && git config --system --add safe.directory /workspace
 
 RUN corepack enable \
  && corepack prepare pnpm@latest --activate

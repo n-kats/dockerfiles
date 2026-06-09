@@ -13,6 +13,7 @@ show_init_help=0
 do_init=0
 codex_homes_dir=""
 host_gitconfig=""
+host_codex_bin=""
 input_tmpfile=""
 if [ ! -t 0 ]; then
   input_tmpfile="$(mktemp)"
@@ -48,6 +49,10 @@ for arg in "$@"; do
       ;;
     --gitconfig)
       host_gitconfig="$(realpath -m "$2")"
+      skip=1
+      ;;
+    --bin)
+      host_codex_bin="$(realpath -m "$2")"
       skip=1
       ;;
     -e|--env)
@@ -96,6 +101,8 @@ if [ "$show_init_help" -eq 1 ]; then
   echo ""
   echo "[_local/templates/template_AGENTS.md]"
   cat "${samples_dir}/template_AGENTS.md"
+  echo ""
+  echo "[NOTE] 既存ファイルに差分がある場合は \$EDITOR -d で開きます"
   exit 0
 fi
 
@@ -123,6 +130,31 @@ if [ "$do_init" -eq 1 ]; then
     echo "$path"
   }
 
+  open_diff_editor() {
+    local left="$1"
+    local right="$2"
+    local editor_cmd=()
+
+    if [ -z "${EDITOR:-}" ]; then
+      echo "[ERROR] 差分がある既存ファイルを開くには EDITOR が必要です"
+      echo "[INFO] 例: export EDITOR=vim"
+      exit 1
+    fi
+
+    IFS=' ' read -r -a editor_cmd <<< "$EDITOR"
+    if [ "${#editor_cmd[@]}" -eq 0 ]; then
+      echo "[ERROR] EDITOR が空です"
+      exit 1
+    fi
+    if ! command -v "${editor_cmd[0]}" >/dev/null 2>&1; then
+      echo "[ERROR] EDITOR のコマンドが見つかりません: ${editor_cmd[0]}"
+      exit 1
+    fi
+
+    echo "[INFO] Diff editing: $(relpath_in_workdir "$right")"
+    "${editor_cmd[@]}" -d "$left" "$right"
+  }
+
   echo "[INFO] Initializing: $(relpath_in_workdir "$local_dir")"
   mkdir -p "$local_dir"
 
@@ -130,7 +162,12 @@ if [ "$do_init" -eq 1 ]; then
     src="${samples_dir}/${file}"
     dst="${local_dir}/${file}"
     if [ -e "$dst" ]; then
-      echo "[INFO] Skipping (already exists): $(relpath_in_workdir "$dst")"
+      if cmp -s "$src" "$dst"; then
+        echo "[INFO] Skipping (already exists): $(relpath_in_workdir "$dst")"
+        continue
+      fi
+      open_diff_editor "$src" "$dst"
+      echo "[INFO] Updated: $(relpath_in_workdir "$dst")"
       continue
     fi
     cp "$src" "$dst"
@@ -141,7 +178,12 @@ if [ "$do_init" -eq 1 ]; then
   dst="${templates_dir}/template_AGENTS.md"
   mkdir -p "$templates_dir"
   if [ -e "$dst" ]; then
-    echo "[INFO] Skipping (already exists): $(relpath_in_workdir "$dst")"
+    if cmp -s "$src" "$dst"; then
+      echo "[INFO] Skipping (already exists): $(relpath_in_workdir "$dst")"
+    else
+      open_diff_editor "$src" "$dst"
+      echo "[INFO] Updated: $(relpath_in_workdir "$dst")"
+    fi
   else
     cp "$src" "$dst"
     echo "[INFO] Created: $(relpath_in_workdir "$dst")"
@@ -227,6 +269,19 @@ if [ -n "$host_gitconfig" ]; then
   docker_options+=("-e" "CCODEX_HOST_GITCONFIG=/tmp/host_gitconfig")
 fi
 
+if [ -n "$host_codex_bin" ]; then
+  if [ ! -f "$host_codex_bin" ]; then
+    echo "[ERROR] codex バイナリが見つかりません: $host_codex_bin"
+    exit 1
+  fi
+  if [ ! -x "$host_codex_bin" ]; then
+    echo "[ERROR] codex バイナリが実行可能ではありません: $host_codex_bin"
+    exit 1
+  fi
+  docker_options+=("-v" "$host_codex_bin:/usr/local/bin/codex:ro")
+  docker_options+=("-e" "CCODEX_HOST_CODEX_BIN=/usr/local/bin/codex")
+fi
+
 if [ -n "$codex_homes_dir" ]; then
   codex_home_host_dir="$codex_homes_dir/$codex_dir_name"
 else
@@ -242,7 +297,7 @@ docker_options+=("-v" "$codex_home_host_dir:/home/ubuntu/.codex")
 
 if [ "$show_help" -eq 1 ]; then
   cat << EOF
-使い方: ccodex [--update] [--workdir <dir>] [--setup <script>] [--codex-homes-dir <dir>] [--gitconfig <path>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のcodexオプション]
+使い方: ccodex [--update] [--workdir <dir>] [--setup <script>] [--codex-homes-dir <dir>] [--gitconfig <path>] [--bin <path>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のcodexオプション]
 
 オプション:
   --update              codexを更新して起動
@@ -250,10 +305,11 @@ if [ "$show_help" -eq 1 ]; then
   --setup <script>      起動時に実行するセットアップスクリプト
   --codex-homes-dir <dir> ~/.codex を <dir>/{codex,codex_with_api} からマウント
   --gitconfig <path>    ホストの gitconfig を /tmp/host_gitconfig に読み取り専用でマウント（assistant側のglobal設定からinclude）
+  --bin <path>          ホストの codex バイナリを /usr/local/bin/codex に読み取り専用でマウントして使用
   -e, --env <VAR=VAL>   Dockerコンテナに環境変数を渡す
   -v, --volume <SRC:DEST> Dockerコンテナにボリュームをマウントする
   --api                 OpenAI APIキーを使用（環境変数OPENAI_API_KEYが必要）
-  --init                _local/ に設定ファイルを作成（既存はスキップ）
+  --init                _local/ に設定ファイルを作成（既存差分は \$EDITOR -d で確認）
   --init-help           初期化手順のヘルプを表示
   --help                このヘルプメッセージとcodexのヘルプを表示
 EOF
@@ -292,15 +348,23 @@ mkdir -p \"\$(dirname \"\$GIT_CONFIG_GLOBAL\")\"
 touch \"\$GIT_CONFIG_GLOBAL\"
 chmod a+rw \"\$GIT_CONFIG_GLOBAL\" 2>/dev/null || true
 
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  if ! git config --global --get-all safe.directory | rg -Fx \"/workspace\" >/dev/null 2>&1; then
-    git config --global --add safe.directory /workspace
-  fi
-fi
-
 if [ -n \"\$CCODEX_HOST_GITCONFIG\" ]; then
   if ! rg -Fq \"path = \$CCODEX_HOST_GITCONFIG\" \"\$GIT_CONFIG_GLOBAL\"; then
     printf '\\n[include]\\n  path = %s\\n' \"\$CCODEX_HOST_GITCONFIG\" >>\"\$GIT_CONFIG_GLOBAL\"
+  fi
+fi
+
+if [ -n \"\$CCODEX_HOST_CODEX_BIN\" ]; then
+  if [ -x \"\$CCODEX_HOST_CODEX_BIN\" ]; then
+    echo \"[INFO] ホストの codex バイナリを使用します: \$CCODEX_HOST_CODEX_BIN\" 1>&2
+    if command -v getcap >/dev/null 2>&1; then
+      if [ -z \"\$(getcap \"\$CCODEX_HOST_CODEX_BIN\" 2>/dev/null)\" ]; then
+        echo \"[NOTE] ホストの codex バイナリに file capabilities (setcap) が付いていません。サンドボックス関連の機能が失敗する場合は、例: sudo setcap 'cap_setuid,cap_setgid=ep' <path-to-codex>\" 1>&2
+      fi
+    fi
+  else
+    echo \"[ERROR] CCODEX_HOST_CODEX_BIN が設定されていますが実行できません: \$CCODEX_HOST_CODEX_BIN\" 1>&2
+    exit 1
   fi
 fi
 

@@ -12,8 +12,13 @@ function show_help() {
   echo "  50021 VoiceVox API"
 }
 
+function container_exists() {
+  # `name` フィルタは部分一致なので、^/NAME$ で完全一致にする。
+  [[ -n "$(docker ps -aq --filter "name=^/${container_name}$")" ]]
+}
+
 function launch_container() {
-  if ! docker ps -a --format '{{json .Names}}' | jq -e --arg name "$container_name" '. == $name' > /dev/null; then
+  if ! container_exists; then
     echo "[INFO] ${container_name} コンテナが存在しないので作成します"
     docker run --gpus=all \
       -d \
@@ -30,7 +35,7 @@ if [ "$1" = "help" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
 fi
 
 if [ "$1" = "down" ]; then
-  if ! docker ps -a --format '{{.Names}}' | grep -wq "$container_name"; then
+  if ! container_exists; then
     echo "[INFO] 起動していません"
     exit 0
   fi
@@ -38,15 +43,20 @@ if [ "$1" = "down" ]; then
   exit 0
 fi
 
-launch_container
 if [ $# -eq 0 ]; then
+  launch_container
   docker exec -it "$container_name" bash
 else
   case "$1" in
     exec)
+      launch_container
       docker exec "$container_name" "$@"
       ;;
     logs)
+      if ! container_exists; then
+        echo "[ERROR] ${container_name} コンテナが起動していません"
+        exit 1
+      fi
       docker logs -f "$container_name"
       ;;
     *)

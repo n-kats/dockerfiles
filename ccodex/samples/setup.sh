@@ -2,8 +2,8 @@
 source "$HOME/.bashrc"
 export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$HOME/.local/bin:$PATH"
 export UV_LINK_MODE="${UV_LINK_MODE:-copy}"
-export UV_PROJECT_ENVIRONMENT="_cache/codex_venv"
-export UV_CACHE_DIR="_cache/uv_cache"
+export UV_PROJECT_ENVIRONMENT="_cache/user_uv_venv"
+export UV_CACHE_DIR="_cache/user_uv_cache"
 
 if [ -f "pyproject.toml" ]; then
   mkdir -p "$(dirname "$UV_PROJECT_ENVIRONMENT")" "$UV_CACHE_DIR"

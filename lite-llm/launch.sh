@@ -14,8 +14,10 @@ build=0
 skip=0
 show_help=0
 do_init=0
+profile_base_dir="$HOME/.config/dockerfiles/lite-llm"
 env_file=""
 envs=()
+unknown_args=()
 
 for arg in "$@"; do
   if [ "$skip" -eq 1 ]; then
@@ -60,6 +62,12 @@ for arg in "$@"; do
     get-url)
       mode="get_url"
       ;;
+    list-profiles)
+      mode="list_profiles"
+      ;;
+    list-profile)
+      mode="list_profiles"
+      ;;
     down|stop)
       mode="down"
       ;;
@@ -70,21 +78,28 @@ for arg in "$@"; do
       show_help=1
       ;;
     *)
+      unknown_args+=("$arg")
       ;;
   esac
   shift
 done
 
+if [ "${#unknown_args[@]}" -gt 0 ]; then
+  echo "[ERROR] 不明なコマンド/オプションです: ${unknown_args[*]}"
+  echo "[INFO] 使い方: lite-llm --help"
+  exit 1
+fi
+
 if [ -z "$config_file" ]; then
-  config_file="$HOME/.config/dockerfiles/lite-llm/${container_name}.yaml"
+  config_file="$profile_base_dir/${container_name}.yaml"
 fi
 if [ -z "$profile_file" ]; then
-  profile_file="$HOME/.config/dockerfiles/lite-llm/${container_name}.profile.json"
+  profile_file="$profile_base_dir/${container_name}.profile.json"
 fi
 
 if [ "$show_help" -eq 1 ]; then
   cat << EOF
-使い方: lite-llm [--update] [--name <name>] [--port <port>] [--config <file>] [--env-file <file>] [-e <VAR=VAL>] [--init] [edit-config|edit-profile|get-url|down|logs]
+使い方: lite-llm [--update] [--name <name>] [--port <port>] [--config <file>] [--env-file <file>] [-e <VAR=VAL>] [--init] [edit-config|edit-profile|get-url|list-profiles|down|logs]
 
 オプション:
   --update              LiteLLM のDockerイメージを更新して起動
@@ -97,11 +112,12 @@ if [ "$show_help" -eq 1 ]; then
   edit-config           \$EDITOR で設定ファイルを開く
   edit-profile          \$EDITOR でプロファイル(JSON)を開く
   get-url               接続URLを出力
+  list-profiles         利用可能なプロファイル一覧を表示
   down, stop            コンテナを停止して削除
   logs                  ログを表示
 
 プロファイル:
-  ~/.config/dockerfiles/lite-llm/<name>.profile.json
+  $profile_base_dir/<name>.profile.json
   {"port":4000,"host":"localhost","mount":["/host/path:/container/path:ro"],"env_map":[{"from":"A","to":"B"}],"env_files":["/path/to/.env"]}
 EOF
   exit 0
@@ -199,6 +215,55 @@ fi
 if [ "$mode" = "logs" ]; then
   docker logs -f "$container_name"
   exit $?
+fi
+
+if [ "$mode" = "list_profiles" ]; then
+  if [ ! -d "$profile_base_dir" ]; then
+    echo "[INFO] プロファイルディレクトリが見つかりません: $profile_base_dir"
+    exit 0
+  fi
+
+  profile_paths=()
+  while IFS= read -r line; do
+    if [ -n "$line" ]; then
+      profile_paths+=("$line")
+    fi
+  done < <(find "$profile_base_dir" -maxdepth 1 -type f -name '*.profile.json' | sort)
+
+  if [ "${#profile_paths[@]}" -eq 0 ]; then
+    echo "[INFO] プロファイルは見つかりませんでした: $profile_base_dir"
+    exit 0
+  fi
+
+  printf '%-24s %-10s %-8s %-15s %s\n' "NAME" "STATUS" "PORT" "HOST" "PATH"
+  for profile_path in "${profile_paths[@]}"; do
+    profile_name="$(basename "$profile_path" .profile.json)"
+    profile_port="-"
+    profile_host="-"
+    profile_status="MISSING"
+
+    if command -v docker >/dev/null 2>&1; then
+      if [ -n "$(docker ps --filter "name=^/${profile_name}$" --format '{{.Names}}' | head -n 1)" ]; then
+        profile_status="RUNNING"
+      elif [ -n "$(docker ps -a --filter "name=^/${profile_name}$" --format '{{.Names}}' | head -n 1)" ]; then
+        profile_status="STOPPED"
+      fi
+    fi
+
+    if command -v jq >/dev/null 2>&1; then
+      parsed_port="$(jq -r '.port // empty' "$profile_path" 2>/dev/null || true)"
+      parsed_host="$(jq -r '.host // empty' "$profile_path" 2>/dev/null || true)"
+      if [ -n "$parsed_port" ]; then
+        profile_port="$parsed_port"
+      fi
+      if [ -n "$parsed_host" ]; then
+        profile_host="$parsed_host"
+      fi
+    fi
+
+    printf '%-24s %-10s %-8s %-15s %s\n' "$profile_name" "$profile_status" "$profile_port" "$profile_host" "$profile_path"
+  done
+  exit 0
 fi
 
 config_file="$(realpath -m "$config_file")"

@@ -13,7 +13,7 @@ fi
 container_name="ollama"
 port=${OLLAMA_PORT:-11434}
 
-if ! docker ps -a --format '{{.Names}}' | grep -wq "$container_name"; then
+if [[ -z "$(docker ps -aq --filter "name=^/${container_name}$")" ]]; then
   echo "[INFO] ${container_name} コンテナが存在しないので作成します"
   docker run --gpus=all \
     -d \
