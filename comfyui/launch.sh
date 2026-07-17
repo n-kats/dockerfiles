@@ -148,16 +148,18 @@ function download_model() {
 
   url="$1"
   target_dir="$2"
+  case "$url" in
+    https://huggingface.co/*/blob/*)
+      url="${url/\/blob\//\/resolve\/}"
+      ;;
+  esac
+
   case "$target_dir" in
-    ""|.|..|*/*|*..*)
+    ""|.|..|*/*|*..*|*\*)
       echo "[ERROR] ディレクトリ名に使用できない文字が含まれています: $target_dir"
       exit 1
       ;;
   esac
-  if printf '%s' "$target_dir" | grep -q '\'; then
-    echo "[ERROR] ディレクトリ名に使用できない文字が含まれています: $target_dir"
-    exit 1
-  fi
 
   download_dir="$mount_dir/comfyui_models/$target_dir"
   mkdir -p "$download_dir"
@@ -175,17 +177,13 @@ function download_model() {
     exit 1
   fi
 
-  if command -v curl >/dev/null 2>&1; then
-    downloader_cmd=(curl -fL --progress-bar --retry 3 --retry-delay 2 "$url" -o "$tmp_destination")
-  elif command -v wget >/dev/null 2>&1; then
-    downloader_cmd=(wget -O "$tmp_destination" "$url")
-  else
-    echo "[ERROR] curl か wget が必要です"
+  if ! command -v wget >/dev/null 2>&1; then
+    echo "[ERROR] wget が必要です"
     exit 1
   fi
 
   echo "[INFO] Downloading to $destination"
-  if ! "${downloader_cmd[@]}"; then
+  if ! wget -O "$tmp_destination" "$url"; then
     rm -f "$tmp_destination"
     echo "[ERROR] ダウンロードに失敗しました: $url"
     exit 1

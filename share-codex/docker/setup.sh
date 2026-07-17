@@ -1,4 +1,5 @@
 #!/bin/bash
+
 source "$HOME/.bashrc"
 export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$HOME/.local/bin:$PATH"
 export UV_LINK_MODE="${UV_LINK_MODE:-copy}"

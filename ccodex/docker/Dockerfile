@@ -16,11 +16,16 @@ RUN apt-get update \
     ca-certificates \
     chromium-browser \
     curl \
+    gawk \
     gh \
     git \
+    git-lfs \
     graphviz-dev \
+    fd-find \
+    less \
     jq \
     libcap2-bin \
+    fzf \
     make \
     pipx \
     pkg-config \
@@ -28,11 +33,14 @@ RUN apt-get update \
     python3-pip \
     python3-venv \
     ripgrep \
-    sudo \
+    zip \
+    tree \
     unzip \
     xz-utils \
  && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
  && apt-get install -y nodejs \
+ && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
+ && git lfs install --system \
  && rm -rf /var/lib/apt/lists/*
 
 RUN git config --system i18n.commitEncoding utf-8 \
@@ -58,21 +66,17 @@ RUN set -eux; \
   ln -sf "$BUN_INSTALL/bin/bunx" /usr/local/bin/bunx
 
 RUN set -eux; \
+  export DENO_INSTALL=/usr/local/deno; \
+  curl -fsSL https://deno.land/install.sh | sh; \
+  ln -sf "$DENO_INSTALL/bin/deno" /usr/local/bin/deno
+
+RUN set -eux; \
   npx --yes playwright install --with-deps; \
   chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH"
 
 RUN set -eux; \
   if ! getent group ubuntu >/dev/null; then groupadd -g 1000 ubuntu; fi; \
   if ! id -u ubuntu >/dev/null 2>&1; then useradd -m -u 1000 -g ubuntu -s /bin/bash ubuntu; fi
-
-RUN groupadd -g 1500 assistant \
- && useradd -m -u 1500 -g 1500 -s /bin/bash assistant \
- && usermod -aG ubuntu assistant
-
-RUN set -eux; \
-  printf '%s\n' 'ubuntu ALL=(assistant) NOPASSWD:ALL' >/etc/sudoers.d/ubuntu-as-assistant; \
-  chmod 0440 /etc/sudoers.d/ubuntu-as-assistant; \
-  visudo -cf /etc/sudoers.d/ubuntu-as-assistant
 
 ARG TIMESTAMP=YYYYMMDD_HHMMSS
 RUN touch /build_timestamp_$TIMESTAMP

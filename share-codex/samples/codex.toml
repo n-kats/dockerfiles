@@ -1,12 +1,6 @@
-model = "gpt-5.6-luna"
 model_reasoning_effort = "medium"
 approval_policy = "never"
-sandbox_mode = "danger-full-access"
-custom.user_shell.no_inject=true
 default_permissions = "default"
-
-[sandbox_workspace_write]
-network_access = true
 
 [memories]
 generate_memories = false
@@ -54,18 +48,15 @@ UV_LINK_MODE = "copy"
 [projects."/workspace"]
 trust_level = "trusted"
 
-[notice]
-fast_default_opt_out = true
-hide_rate_limit_model_nudge = true
-hide_full_access_warning = true
-
-[custom.theme.diff]
-add_line_bg = "#ccffcc"
-del_line_bg = "#cccccc"
+[permissions.default]
+description = "Container workspace with protected credentials"
+extends = ":workspace"
 
 [permissions.default.filesystem]
 "/" = "read"
-"/workspace" = "write"
 "/workspace/_local/codex_homes/auth.json" = "deny"
+"/home/ubuntu/.codex/auth.json" = "deny"
+"/workspace/.env" = "deny"
+
 [permissions.default.network]
 enabled = true

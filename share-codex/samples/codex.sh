@@ -8,9 +8,8 @@ if [ -e ".env" ]; then
 fi
 mkdir -p _local/codex_homes
 chmod 700 _local/codex_homes
-
-ccodex "$@" \
-  --codex-home _local/codex_homes \
+share-codex "$@" \
   --config-file _local/codex.toml \
+  --codex-home _local/codex_homes \
   --setup _local/setup.sh \
   "${options[@]}"

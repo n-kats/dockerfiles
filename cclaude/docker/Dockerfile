@@ -9,6 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl git gh jq ca-certificates libcap2-bin ripgrep unzip xz-utils \
+    gawk \
     make sudo chromium-browser \
     python3 python3-pip python3-venv pipx \
     build-essential graphviz-dev pkg-config \
@@ -35,6 +36,11 @@ RUN set -eux; \
   curl -fsSL https://bun.sh/install | bash; \
   ln -sf "$BUN_INSTALL/bin/bun" /usr/local/bin/bun; \
   ln -sf "$BUN_INSTALL/bin/bunx" /usr/local/bin/bunx
+
+RUN set -eux; \
+  export DENO_INSTALL=/usr/local/deno; \
+  curl -fsSL https://deno.land/install.sh | sh; \
+  ln -sf "$DENO_INSTALL/bin/deno" /usr/local/bin/deno
 
 RUN set -eux; \
   npx --yes playwright install --with-deps; \

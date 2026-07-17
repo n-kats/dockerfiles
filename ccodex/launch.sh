@@ -238,26 +238,24 @@ else
   mount_cache_dir="cache"
   mount_local_dir="local"
 fi
-for user in ubuntu assistant; do
-  mount_dir="$cache_dir/mount/user/$user"
-  home_dir_in_docker="/home/$user"
-  for dir in \
-    $mount_cache_dir:.cache \
-    $mount_local_dir:.local \
-    config:.config \
-    npm_cache:.npm \
-    pnpm_cache:.pnpm-store \
-    bun_cache:.bun \
-  ; do
-    IFS=":" read -r name path <<< "$dir"
-    full_path="$mount_dir/$name"
-    if [ ! -d "$full_path" ]; then
-      echo "[INFO] Creating directory: $full_path"
-      mkdir -p "$full_path"
-    fi
-    chmod 0777 "$full_path" 2>/dev/null || true
-    docker_options+=("-v" "$full_path:/home/$user/$path")
-  done
+user=ubuntu
+mount_dir="$cache_dir/mount/user/$user"
+for dir in \
+  $mount_cache_dir:.cache \
+  $mount_local_dir:.local \
+  config:.config \
+  npm_cache:.npm \
+  pnpm_cache:.pnpm-store \
+  bun_cache:.bun \
+; do
+  IFS=":" read -r name path <<< "$dir"
+  full_path="$mount_dir/$name"
+  if [ ! -d "$full_path" ]; then
+    echo "[INFO] Creating directory: $full_path"
+    mkdir -p "$full_path"
+  fi
+  chmod 0777 "$full_path" 2>/dev/null || true
+  docker_options+=("-v" "$full_path:/home/$user/$path")
 done
 
 if [ -n "$host_gitconfig" ]; then
@@ -304,7 +302,7 @@ if [ "$show_help" -eq 1 ]; then
   --workdir <dir>       対象ディレクトリ（デフォルトはカレントディレクトリ）
   --setup <script>      起動時に実行するセットアップスクリプト
   --codex-homes-dir <dir> ~/.codex を <dir>/{codex,codex_with_api} からマウント
-  --gitconfig <path>    ホストの gitconfig を /tmp/host_gitconfig に読み取り専用でマウント（assistant側のglobal設定からinclude）
+  --gitconfig <path>    ホストの gitconfig を /tmp/host_gitconfig に読み取り専用でマウント（ubuntu側のglobal設定からinclude）
   --bin <path>          ホストの codex バイナリを /usr/local/bin/codex に読み取り専用でマウントして使用
   -e, --env <VAR=VAL>   Dockerコンテナに環境変数を渡す
   -v, --volume <SRC:DEST> Dockerコンテナにボリュームをマウントする
@@ -327,7 +325,10 @@ docker run --rm \
   --security-opt no-new-privileges:false \
   -u "$(id -u):$(id -g)" \
   -v "$work_dir:/workspace" \
-  --cap-add SETUID --cap-add SETGID \
+  --security-opt seccomp=unconfined \
+  --security-opt apparmor=unconfined \
+  -e "TERM=${TERM:-xterm-256color}" \
+  -e "COLORTERM=${COLORTERM:-}" \
   -w "/workspace" \
   --network host \
   "${docker_options[@]}" \
