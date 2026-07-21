@@ -6,7 +6,7 @@ if [ -n "${user_home:-}" ] && [ -x "$user_home/.local/bin/claude" ]; then
   exec "$user_home/.local/bin/claude" "$@"
 fi
 
-for candidate in /home/ubuntu/.local/bin/claude /home/assistant/.local/bin/claude; do
+for candidate in /home/ubuntu/.local/bin/claude; do
   if [ -x "$candidate" ]; then
     exec "$candidate" "$@"
   fi

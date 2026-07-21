@@ -88,7 +88,6 @@ if [ "$show_init_help" -eq 1 ]; then
   echo "初期化手順:"
   echo "[.env, 秘密ファイル]"
   echo "- シンボリックリンクパターン: ln -s path/to/other/.env .env"
-  echo "- 権限パターン: chmod 600 .env"
   echo ""
   echo "[_local/codex.sh]"
   cat "${samples_dir}/codex.sh"
@@ -113,7 +112,7 @@ if [ "$do_init" -eq 1 ]; then
   agents_md="${work_dir}/AGENTS.md"
 
   if [ ! -d "$work_dir" ]; then
-    echo "[ERROR] Work directory does not exist: $work_dir"
+    echo "[ERROR] 作業ディレクトリが存在しません: $work_dir"
     exit 1
   fi
 
@@ -151,11 +150,11 @@ if [ "$do_init" -eq 1 ]; then
       exit 1
     fi
 
-    echo "[INFO] Diff editing: $(relpath_in_workdir "$right")"
+    echo "[INFO] 差分確認: $(relpath_in_workdir "$right")"
     "${editor_cmd[@]}" -d "$left" "$right"
   }
 
-  echo "[INFO] Initializing: $(relpath_in_workdir "$local_dir")"
+  echo "[INFO] 初期化: $(relpath_in_workdir "$local_dir")"
   mkdir -p "$local_dir"
 
   for file in codex.sh codex.toml setup.sh; do
@@ -163,15 +162,15 @@ if [ "$do_init" -eq 1 ]; then
     dst="${local_dir}/${file}"
     if [ -e "$dst" ]; then
       if cmp -s "$src" "$dst"; then
-        echo "[INFO] Skipping (already exists): $(relpath_in_workdir "$dst")"
+        echo "[INFO] スキップ（既存）: $(relpath_in_workdir "$dst")"
         continue
       fi
       open_diff_editor "$src" "$dst"
-      echo "[INFO] Updated: $(relpath_in_workdir "$dst")"
+      echo "[INFO] 更新: $(relpath_in_workdir "$dst")"
       continue
     fi
     cp "$src" "$dst"
-    echo "[INFO] Created: $(relpath_in_workdir "$dst")"
+    echo "[INFO] 作成: $(relpath_in_workdir "$dst")"
   done
 
   src="${samples_dir}/template_AGENTS.md"
@@ -179,14 +178,14 @@ if [ "$do_init" -eq 1 ]; then
   mkdir -p "$templates_dir"
   if [ -e "$dst" ]; then
     if cmp -s "$src" "$dst"; then
-      echo "[INFO] Skipping (already exists): $(relpath_in_workdir "$dst")"
+      echo "[INFO] スキップ（既存）: $(relpath_in_workdir "$dst")"
     else
       open_diff_editor "$src" "$dst"
-      echo "[INFO] Updated: $(relpath_in_workdir "$dst")"
+      echo "[INFO] 更新: $(relpath_in_workdir "$dst")"
     fi
   else
     cp "$src" "$dst"
-    echo "[INFO] Created: $(relpath_in_workdir "$dst")"
+    echo "[INFO] 作成: $(relpath_in_workdir "$dst")"
   fi
 
   if [ ! -f "$agents_md" ]; then
@@ -200,14 +199,14 @@ if [ "$do_init" -eq 1 ]; then
 fi
 
 if [ -z "$CODEX_CACHE_DIR" ]; then
-  echo "CODEX_CACHE_DIR is not set"
+  echo "[ERROR] CODEX_CACHE_DIR が設定されていません"
   exit 1
 fi
 
 cache_dir="$(realpath "$CODEX_CACHE_DIR")"
 
 if [ ! -d $work_dir ]; then
-  echo "[ERROR] Work directory does not exist: $work_dir"
+  echo "[ERROR] 作業ディレクトリが存在しません: $work_dir"
   exit 1
 fi
 
@@ -219,7 +218,7 @@ fi
 if [ "$build" -eq 1 ]; then
   set -e
   (
-    echo "[INFO] Building Docker image"
+    echo "[INFO] Dockerイメージをビルド"
     docker build --build-arg TIMESTAMP=$(date +%Y%m%d_%H%M%S) -t "$image_name" "$dockerfile_dir"
   )
 fi
@@ -238,8 +237,7 @@ else
   mount_cache_dir="cache"
   mount_local_dir="local"
 fi
-user=ubuntu
-mount_dir="$cache_dir/mount/user/$user"
+mount_dir="$cache_dir/mount/user/ubuntu"
 for dir in \
   $mount_cache_dir:.cache \
   $mount_local_dir:.local \
@@ -251,16 +249,15 @@ for dir in \
   IFS=":" read -r name path <<< "$dir"
   full_path="$mount_dir/$name"
   if [ ! -d "$full_path" ]; then
-    echo "[INFO] Creating directory: $full_path"
+    echo "[INFO] ディレクトリを作成: $full_path"
     mkdir -p "$full_path"
   fi
-  chmod 0777 "$full_path" 2>/dev/null || true
-  docker_options+=("-v" "$full_path:/home/$user/$path")
+  docker_options+=("-v" "$full_path:/home/ubuntu/$path")
 done
 
 if [ -n "$host_gitconfig" ]; then
   if [ ! -f "$host_gitconfig" ]; then
-    echo "[ERROR] gitconfig not found: $host_gitconfig"
+    echo "[ERROR] gitconfig が見つかりません: $host_gitconfig"
     exit 1
   fi
   docker_options+=("-v" "$host_gitconfig:/tmp/host_gitconfig:ro")
@@ -286,10 +283,9 @@ else
   codex_home_host_dir="$cache_dir/mount/user/$codex_dir_name"
 fi
 if [ ! -d "$codex_home_host_dir" ]; then
-  echo "[INFO] Creating directory: $codex_home_host_dir"
+  echo "[INFO] ディレクトリを作成: $codex_home_host_dir"
   mkdir -p "$codex_home_host_dir"
 fi
-chmod 0700 "$codex_home_host_dir" 2>/dev/null || true
 docker_options+=("-v" "$codex_home_host_dir:/home/ubuntu/.codex")
 
 
@@ -322,32 +318,22 @@ else
 fi
 
 docker run --rm \
-  --security-opt no-new-privileges:false \
   -u "$(id -u):$(id -g)" \
   -v "$work_dir:/workspace" \
-  --security-opt seccomp=unconfined \
-  --security-opt apparmor=unconfined \
   -e "TERM=${TERM:-xterm-256color}" \
   -e "COLORTERM=${COLORTERM:-}" \
   -w "/workspace" \
   --network host \
+  --security-opt no-new-privileges:false \
+  --security-opt seccomp=unconfined \
+  --security-opt apparmor=unconfined \
+  --cap-add NET_ADMIN \
   "${docker_options[@]}" \
   "$image_name" bash -c "
 umask 000
-home_dir_in_docker=\"\$(getent passwd \"\$(id -u)\" 2>/dev/null | cut -d: -f6)\"
-if [ -z \"\$home_dir_in_docker\" ]; then
-  home_dir_in_docker=\"\${HOME:-/home/ubuntu}\"
-fi
-if [ -z \"\$home_dir_in_docker\" ]; then
-  home_dir_in_docker=/home/ubuntu
-fi
-chmod 710 \"\$home_dir_in_docker\" 2>/dev/null || true
-chmod 700 \"\$home_dir_in_docker/.codex\" 2>/dev/null || true
-
-export GIT_CONFIG_GLOBAL=\"\$home_dir_in_docker/.config/git/config\"
+export GIT_CONFIG_GLOBAL=\"/home/ubuntu/.config/git/config\"
 mkdir -p \"\$(dirname \"\$GIT_CONFIG_GLOBAL\")\"
 touch \"\$GIT_CONFIG_GLOBAL\"
-chmod a+rw \"\$GIT_CONFIG_GLOBAL\" 2>/dev/null || true
 
 if [ -n \"\$CCODEX_HOST_GITCONFIG\" ]; then
   if ! rg -Fq \"path = \$CCODEX_HOST_GITCONFIG\" \"\$GIT_CONFIG_GLOBAL\"; then
@@ -371,10 +357,10 @@ fi
 
 if [ -n \"$setup_script\" ]; then
   if [ -f \"$setup_script\" ]; then
-    echo \"[INFO] Running setup script: $setup_script\" 1>&2
+    echo \"[INFO] セットアップスクリプトを実行: $setup_script\" 1>&2
     source \"$setup_script\" 1>&2
   else
-    echo \"[ERROR] Setup script not found: $setup_script\" 1>&2
+    echo \"[ERROR] セットアップスクリプトが見つかりません: $setup_script\" 1>&2
     exit 1
   fi
 fi

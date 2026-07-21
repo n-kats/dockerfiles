@@ -3,19 +3,49 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Asia/Tokyo \
     LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    LESSCHARSET=utf-8 \
     PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     BUN_INSTALL=/usr/local/bun
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl git gh jq ca-certificates libcap2-bin ripgrep unzip xz-utils \
+    bubblewrap \
+    build-essential \
+    ca-certificates \
+    chromium-browser \
+    curl \
+    fd-find \
+    fzf \
     gawk \
-    make sudo chromium-browser \
-    python3 python3-pip python3-venv pipx \
-    build-essential graphviz-dev pkg-config \
+    gh \
+    git \
+    git-lfs \
+    graphviz-dev \
+    jq \
+    less \
+    libcap2-bin \
+    make \
+    pipx \
+    pkg-config \
+    python3 \
+    python3-pip \
+    python3-venv \
+    ripgrep \
+    socat \
+    tree \
+    unzip \
+    xz-utils \
+    zip \
+    && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
+    && git lfs install --system \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+RUN git config --system i18n.commitEncoding utf-8 \
+ && git config --system i18n.logOutputEncoding utf-8 \
+ && git config --system --add safe.directory /workspace
+
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
  && apt-get install -y nodejs \
  && rm -rf /var/lib/apt/lists/*
 
@@ -50,15 +80,6 @@ RUN set -eux; \
   if ! getent group ubuntu >/dev/null; then groupadd -g 1000 ubuntu; fi; \
   if ! id -u ubuntu >/dev/null 2>&1; then useradd -m -u 1000 -g ubuntu -s /bin/bash ubuntu; fi
 
-RUN groupadd -g 1500 assistant \
- && useradd -m -u 1500 -g 1500 -s /bin/bash assistant \
- && usermod -aG ubuntu assistant
-
-RUN set -eux; \
-  printf '%s\n' 'ubuntu ALL=(assistant) NOPASSWD:ALL' >/etc/sudoers.d/ubuntu-as-assistant; \
-  chmod 0440 /etc/sudoers.d/ubuntu-as-assistant; \
-  visudo -cf /etc/sudoers.d/ubuntu-as-assistant
-
 ARG TIMESTAMP=YYYYMMDD_HHMMSS
 RUN touch /build_timestamp_$TIMESTAMP
 RUN set -eux; \
@@ -70,8 +91,7 @@ RUN set -eux; \
     su -s /bin/bash "$user" -c "HOME='$home' npm_config_prefix='$home/.local' npm install -g @anthropic-ai/claude-code"; \
     chown -R "$user:$user" "$home/.local"; \
   }; \
-  install_claude_code ubuntu; \
-  install_claude_code assistant
+  install_claude_code ubuntu
 
 COPY run_claude.sh /usr/local/bin/claude
 RUN chmod 0755 /usr/local/bin/claude

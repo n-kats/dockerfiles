@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "deny": [
+      "Read(./_local/claude.json)",
+      "Edit(./_local/claude.json)",
+      "Read(./_local/codex_homes/auth.json)",
+      "Edit(./_local/codex_homes/auth.json)",
+      "Edit(./.claude/settings.json)",
+      "Edit(./.git)",
+      "Edit(./.git/**)",
+      "Read(~/.claude.json)",
+      "Edit(~/.claude.json)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "autoAllowBashIfSandboxed": true,
+    "enableWeakerNestedSandbox": true,
+    "filesystem": {
+      "allowWrite": [
+        "~/.cache",
+        "~/.local",
+        "~/.claude",
+        "~/.npm",
+        "~/.pnpm-store",
+        "~/.bun"
+      ],
+      "denyRead": [
+        "~/.claude.json",
+        "/workspace/_local/claude.json",
+        "/workspace/_local/codex_homes/auth.json"
+      ],
+      "denyWrite": [
+        "/workspace/.git",
+        "/workspace/.git/**",
+        "/workspace/.claude/settings.json"
+      ]
+    },
+    "credentials": {
+      "files": [
+        {
+          "path": "~/.claude.json",
+          "mode": "deny"
+        }
+      ]
+    }
+  }
+}

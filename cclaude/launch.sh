@@ -1,21 +1,10 @@
 #!/bin/bash
 
-if [ -z "$CLAUDE_CACHE_DIR" ]; then
-  echo "[ERROR] CLAUDE_CACHE_DIR が設定されていません"
-  exit 1
-fi
-
 this_script_dir="$(dirname "$(realpath "$0")")"
 dockerfile_dir="${this_script_dir}/docker"
-cache_dir="$(realpath -m "$CLAUDE_CACHE_DIR")"
-mkdir -p "$cache_dir"
-if [ ! -d "$cache_dir" ]; then
-  echo "[ERROR] CLAUDE_CACHE_DIR がディレクトリではありません: $cache_dir"
-  exit 1
-fi
 work_dir="$(pwd)"
-cli_image_name="cclaude-cli"
-build_cli=0
+image_name="cclaude-cli"
+build=0
 skip=0
 show_help=0
 show_init_help=0
@@ -23,11 +12,9 @@ do_init=0
 LITELLM_URL=""
 litellm_url_set=0
 setup_script=""
-env_file=""
 claude_json=""
-run_user="assistant"
-envs=()
-volumes=()
+host_gitconfig=""
+docker_options=()
 options=()
 input_tmpfile=""
 if [ ! -t 0 ]; then
@@ -44,7 +31,7 @@ for arg in "$@"; do
   fi
   case $arg in
     --update)
-      build_cli=1
+      build=1
       ;;
     --workdir)
       work_dir="$(realpath "$2")"
@@ -55,28 +42,28 @@ for arg in "$@"; do
       skip=1
       ;;
     --litellm-url)
-      LITELLM_URL="${2:?Error: --litellm-url requires a value.}"
+      LITELLM_URL="$2"
       litellm_url_set=1
       skip=1
       ;;
     --env-file)
-      env_file="${2:?Error: --env-file requires a value.}"
+      docker_options+=("--env-file" "$2")
       skip=1
       ;;
     --claude-json)
-      claude_json="${2:?Error: --claude-json requires a value.}"
+      claude_json="$2"
       skip=1
       ;;
-    --user)
-      run_user="${2:?Error: --user requires a value.}"
+    --gitconfig)
+      host_gitconfig="$(realpath -m "$2")"
       skip=1
       ;;
     -e|--env)
-      envs+=("$2")
+      docker_options+=("-e" "$2")
       skip=1
       ;;
     -v|--volume)
-      volumes+=("$2")
+      docker_options+=("-v" "$2")
       skip=1
       ;;
     --init)
@@ -99,15 +86,17 @@ done
 if [ "$show_init_help" -eq 1 ]; then
   samples_dir="${this_script_dir}/samples"
   echo "初期化手順:"
-  echo "[.env, 秘密ファイル]"
-  echo "- シンボリックリンクパターン: ln -s path/to/other/.env .env"
-  echo "- 権限パターン: chmod 600 .env"
+  echo "[_local/claude.env, 秘密ファイル]"
+  echo "- シンボリックリンクパターン: ln -s path/to/other/claude.env _local/claude.env"
   echo ""
   echo "[_local/claude.sh]"
   cat "${samples_dir}/claude.sh"
   echo ""
   echo "[_local/claude.json]"
   cat "${samples_dir}/claude.json"
+  echo ""
+  echo "[.claude/settings.json]"
+  cat "${samples_dir}/settings.json"
   echo ""
   echo "[_local/setup_claude.sh]"
   cat "${samples_dir}/setup_claude.sh"
@@ -117,44 +106,104 @@ fi
 if [ "$do_init" -eq 1 ]; then
   samples_dir="${this_script_dir}/samples"
   local_dir="${work_dir}/_local"
+  settings_dir="${work_dir}/.claude"
 
   if [ ! -d "$work_dir" ]; then
     echo "[ERROR] 作業ディレクトリが存在しません: $work_dir"
     exit 1
   fi
 
-  echo "[INFO] 初期化: $local_dir"
+  relpath_in_workdir() {
+    local path="$1"
+    if [[ "$path" == "$work_dir" ]]; then
+      echo "."
+      return
+    fi
+    if [[ "$path" == "$work_dir/"* ]]; then
+      echo "${path#$work_dir/}"
+      return
+    fi
+    echo "$path"
+  }
+
+  open_diff_editor() {
+    local left="$1"
+    local right="$2"
+    local editor_cmd=()
+
+    if [ -z "${EDITOR:-}" ]; then
+      echo "[ERROR] 差分がある既存ファイルを開くには EDITOR が必要です"
+      echo "[INFO] 例: export EDITOR=vim"
+      exit 1
+    fi
+
+    IFS=' ' read -r -a editor_cmd <<< "$EDITOR"
+    if [ "${#editor_cmd[@]}" -eq 0 ]; then
+      echo "[ERROR] EDITOR が空です"
+      exit 1
+    fi
+    if ! command -v "${editor_cmd[0]}" >/dev/null 2>&1; then
+      echo "[ERROR] EDITOR のコマンドが見つかりません: ${editor_cmd[0]}"
+      exit 1
+    fi
+
+    echo "[INFO] 差分確認: $(relpath_in_workdir "$right")"
+    "${editor_cmd[@]}" -d "$left" "$right"
+  }
+
+  echo "[INFO] 初期化: $(relpath_in_workdir "$local_dir")"
   mkdir -p "$local_dir"
 
   for file in claude.sh claude.json setup_claude.sh; do
     src="${samples_dir}/${file}"
     dst="${local_dir}/${file}"
     if [ -e "$dst" ]; then
-      echo "[INFO] Skipping (already exists): $dst"
+      if cmp -s "$src" "$dst"; then
+        echo "[INFO] スキップ（既存）: $(relpath_in_workdir "$dst")"
+        continue
+      fi
+      open_diff_editor "$src" "$dst"
+      echo "[INFO] 更新: $(relpath_in_workdir "$dst")"
       continue
     fi
     cp "$src" "$dst"
-    echo "[INFO] Created: $dst"
+    echo "[INFO] 作成: $(relpath_in_workdir "$dst")"
   done
+
+  src="${samples_dir}/settings.json"
+  dst="${settings_dir}/settings.json"
+  mkdir -p "$settings_dir"
+  if [ -e "$dst" ]; then
+    if cmp -s "$src" "$dst"; then
+      echo "[INFO] スキップ（既存）: $(relpath_in_workdir "$dst")"
+    else
+      open_diff_editor "$src" "$dst"
+      echo "[INFO] 更新: $(relpath_in_workdir "$dst")"
+    fi
+  else
+    cp "$src" "$dst"
+    echo "[INFO] 作成: $(relpath_in_workdir "$dst")"
+  fi
 
   chmod +x "${local_dir}/claude.sh" "${local_dir}/setup_claude.sh" 2>/dev/null || true
   exit 0
 fi
 
-if [ ! -d "$work_dir" ]; then
-  echo "[ERROR] 作業ディレクトリが存在しません: $work_dir"
+if [ -z "$CLAUDE_CACHE_DIR" ]; then
+  echo "[ERROR] CLAUDE_CACHE_DIR が設定されていません"
   exit 1
 fi
 
-if [ -n "$env_file" ]; then
-  if [[ "$env_file" == "~/"* ]]; then
-    env_file="$HOME/${env_file#~/}"
-  fi
-  env_file="$(realpath -m "$env_file")"
-  if [ ! -f "$env_file" ]; then
-    echo "[ERROR] Envファイルが見つかりません: $env_file"
-    exit 1
-  fi
+cache_dir="$(realpath -m "$CLAUDE_CACHE_DIR")"
+mkdir -p "$cache_dir"
+if [ ! -d "$cache_dir" ]; then
+  echo "[ERROR] CLAUDE_CACHE_DIR がディレクトリではありません: $cache_dir"
+  exit 1
+fi
+
+if [ ! -d "$work_dir" ]; then
+  echo "[ERROR] 作業ディレクトリが存在しません: $work_dir"
+  exit 1
 fi
 
 if [ -n "$claude_json" ]; then
@@ -167,68 +216,47 @@ if [ -n "$claude_json" ]; then
     exit 1
   fi
 else
-  case "$run_user" in
-    ubuntu|assistant)
-      ;;
-    *)
-      echo "[ERROR] 未対応の --user 値です: $run_user"
-      echo "[ERROR] 使用可能な値: ubuntu, assistant"
-      exit 1
-      ;;
-  esac
-
-  claude_json="$cache_dir/mount/user/$run_user/claude.json"
+  claude_json="$cache_dir/mount/user/ubuntu/claude.json"
   claude_json_dir="$(dirname "$claude_json")"
   if [ ! -d "$claude_json_dir" ]; then
-    echo "[INFO] Creating directory: $claude_json_dir"
+    echo "[INFO] ディレクトリを作成: $claude_json_dir"
     mkdir -p "$claude_json_dir"
   fi
   if [ ! -f "$claude_json" ]; then
-    echo "[INFO] Creating file: $claude_json"
+    echo "[INFO] ファイルを作成: $claude_json"
     printf '%s\n' '{}' > "$claude_json"
   fi
 fi
 
 # Build image automatically if it does not exist
-if ! docker image inspect "$cli_image_name" >/dev/null 2>&1; then
-  build_cli=1
+if ! docker image inspect "$image_name" >/dev/null 2>&1; then
+  build=1
 fi
 
-if [ "$build_cli" -eq 1 ]; then
+if [ "$build" -eq 1 ]; then
   (
     set -e
-    echo "[INFO] Building Claude CLI Docker image"
-    docker build --build-arg TIMESTAMP=$(date +%Y%m%d_%H%M%S) -t "$cli_image_name" "$dockerfile_dir"
+    echo "[INFO] Dockerイメージをビルド"
+    docker build --build-arg TIMESTAMP=$(date +%Y%m%d_%H%M%S) -t "$image_name" "$dockerfile_dir"
   )
 fi
 
-docker_options=()
-
-if [ -n "$env_file" ]; then
-  docker_options+=("--env-file" "$env_file")
+if [ -n "$host_gitconfig" ]; then
+  if [ ! -f "$host_gitconfig" ]; then
+    echo "[ERROR] gitconfig が見つかりません: $host_gitconfig"
+    exit 1
+  fi
+  docker_options+=("-v" "$host_gitconfig:/tmp/host_gitconfig:ro")
+  docker_options+=("-e" "CCLAUDE_HOST_GITCONFIG=/tmp/host_gitconfig")
 fi
-
-for env in "${envs[@]}"; do
-  docker_options+=("-e" "$env")
-done
-
-for volume in "${volumes[@]}"; do
-  docker_options+=("-v" "$volume")
-done
 
 if [ -n "$input_tmpfile" ]; then
   docker_options+=("-v" "$input_tmpfile:/tmp/claude_stdin:ro")
 fi
 
-docker_options+=("-e" "HOME=/home/$run_user")
-docker_options+=("-e" "USER=$run_user")
-docker_options+=("-e" "LOGNAME=$run_user")
+docker_options+=("-e" "HOME=/home/ubuntu")
 
-mount_user_dir="$run_user"
-docker_user="$run_user"
-
-mount_dir="$cache_dir/mount/user/$mount_user_dir"
-home_dir_in_docker="/home/$mount_user_dir"
+mount_dir="$cache_dir/mount/user/ubuntu"
 
 for dir in \
   claude_cache:.cache \
@@ -241,16 +269,16 @@ for dir in \
   IFS=":" read -r name path <<< "$dir"
   full_path="$mount_dir/$name"
   if [ ! -d "$full_path" ]; then
-    echo "[INFO] Creating directory: $full_path"
+    echo "[INFO] ディレクトリを作成: $full_path"
     mkdir -p "$full_path"
   fi
-  docker_options+=("-v" "$full_path:$home_dir_in_docker/$path")
+  docker_options+=("-v" "$full_path:/home/ubuntu/$path")
 done
-docker_options+=("-v" "$claude_json:$home_dir_in_docker/.claude.json")
+docker_options+=("-v" "$claude_json:/home/ubuntu/.claude.json")
 
 if [ "$show_help" -eq 1 ]; then
   cat << EOF
-使い方: cclaude [--update] [--workdir <dir>] [--setup <script>] [--litellm-url <url>] [--env-file <file>] [--claude-json <file>] [--user <user>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のclaudeオプション]
+使い方: cclaude [--update] [--workdir <dir>] [--setup <script>] [--litellm-url <url>] [--env-file <file>] [--claude-json <file>] [--gitconfig <path>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のclaudeオプション]
 
 オプション:
   --update              Claude CLI のDockerイメージを更新して起動
@@ -259,10 +287,10 @@ if [ "$show_help" -eq 1 ]; then
   --litellm-url <url>   LiteLLM のベースURL（指定時のみLiteLLM経由にする）
   --env-file <file>     Dockerコンテナに環境変数を渡す
   --claude-json <file>  claude.json を指定してマウントする
-  --user <user>         Dockerコンテナの実行ユーザーを指定（ubuntu, assistant）
+  --gitconfig <path>    ホストの gitconfig を /tmp/host_gitconfig に読み取り専用でマウント（コンテナ側のglobal設定からinclude）
   -e, --env <VAR=VAL>   Dockerコンテナに環境変数を渡す
   -v, --volume <SRC:DEST> Dockerコンテナにボリュームをマウントする
-  --init                _local/ に設定ファイルを作成（既存はスキップ）
+  --init                _local/ と .claude/ に設定ファイルを作成（同一ならスキップ、差分は \$EDITOR -d で確認）
   --init-help           初期化手順のヘルプを表示
   --help                このヘルプメッセージとclaudeのヘルプを表示
 EOF
@@ -280,22 +308,42 @@ fi
 
 docker_options+=("-e" "NO_COLOR=1")
 docker_options+=("-e" "FORCE_COLOR=0")
+docker_options+=("-e" "DISABLE_AUTOUPDATER=1")
+docker_options+=("-e" "GIT_OPTIONAL_LOCKS=0")
+docker_options+=("-e" "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1")
 
 command_str="claude ${options[@]}"
 
 docker run --rm \
+  -u "$(id -u):$(id -g)" \
   -v "$work_dir:/workspace" \
+  -e "TERM=${TERM:-xterm-256color}" \
+  -e "COLORTERM=${COLORTERM:-}" \
   -w "/workspace" \
-  -u "$docker_user" \
   --network host \
+  --security-opt no-new-privileges:false \
+  --security-opt seccomp=unconfined \
+  --security-opt apparmor=unconfined \
+  --cap-add NET_ADMIN \
   "${docker_options[@]}" \
-  "$cli_image_name" bash -c "
+  "$image_name" bash -c "
+umask 000
+export GIT_CONFIG_GLOBAL=\"/home/ubuntu/.config/git/config\"
+mkdir -p \"\$(dirname \"\$GIT_CONFIG_GLOBAL\")\"
+touch \"\$GIT_CONFIG_GLOBAL\"
+
+if [ -n \"\$CCLAUDE_HOST_GITCONFIG\" ]; then
+  if ! rg -Fq \"path = \$CCLAUDE_HOST_GITCONFIG\" \"\$GIT_CONFIG_GLOBAL\"; then
+    printf '\\n[include]\\n  path = %s\\n' \"\$CCLAUDE_HOST_GITCONFIG\" >>\"\$GIT_CONFIG_GLOBAL\"
+  fi
+fi
+
 if [ -n \"$setup_script\" ]; then
   if [ -f \"$setup_script\" ]; then
-    echo \"[INFO] Running setup script: $setup_script\" 1>&2
+    echo \"[INFO] セットアップスクリプトを実行: $setup_script\" 1>&2
     source \"$setup_script\" 1>&2
   else
-    echo \"[ERROR] Setup script not found: $setup_script\" 1>&2
+    echo \"[ERROR] セットアップスクリプトが見つかりません: $setup_script\" 1>&2
     exit 1
   fi
 fi

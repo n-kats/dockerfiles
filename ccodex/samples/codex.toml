@@ -1,4 +1,5 @@
 model = "gpt-5.6-luna"
+context_window = 272000
 model_reasoning_effort = "medium"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
@@ -48,7 +49,7 @@ include_only = [
 HOME = "/home/ubuntu"
 USER = "ubuntu"
 UV_CACHE_DIR = "/workspace/_cache/codex_uv_cache"
-UV_PROJECT_ENVIRONMENT = "/workspace/_cache/codex_venv"
+UV_PROJECT_ENVIRONMENT = "/workspace/_cache/codex_uv_venv"
 UV_LINK_MODE = "copy"
 
 [projects."/workspace"]
@@ -67,5 +68,7 @@ del_line_bg = "#cccccc"
 "/" = "read"
 "/workspace" = "write"
 "/workspace/_local/codex_homes/auth.json" = "deny"
+"/workspace/_local/claude.json" = "deny"
+
 [permissions.default.network]
 enabled = true

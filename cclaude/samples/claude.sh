@@ -1,11 +1,11 @@
 #!/bin/bash
 cd "$(dirname "$0")/.." || exit 1
-eval "CLAUDE_COMMON_ARGS=(${CLAUDE_COMMON_ARGS_STR})"
 
 options=()
-if [ -e ".env" ]; then
-  chmod 600 .env
-  options+=("--env-file" ".env")
+claude_env_file="_local/claude.env"
+if [ -e "$claude_env_file" ]; then
+  chmod 600 "$claude_env_file"
+  options+=("--env-file" "$claude_env_file")
 fi
 
 litellm_url="${CLAUDE_LITELLM_URL:-}"
@@ -16,9 +16,7 @@ if [ -z "$litellm_url" ]; then
   litellm_url="http://127.0.0.1:4000"
 fi
 
-cclaude "$@" "${CLAUDE_COMMON_ARGS[@]}" \
-  --model "gpt-5.2" \
-  --litellm-url "$litellm_url" \
+cclaude "$@" \
   --claude-json "_local/claude.json" \
   --setup "_local/setup_claude.sh" \
   "${options[@]}"
