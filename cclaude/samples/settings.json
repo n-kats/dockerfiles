@@ -3,11 +3,11 @@
   "permissions": {
     "defaultMode": "bypassPermissions",
     "deny": [
-      "Read(./_local/claude.json)",
-      "Edit(./_local/claude.json)",
+      "Read(./_local/claude_homes/claude.json)",
+      "Edit(./_local/claude_homes/claude.json)",
       "Read(./_local/codex_homes/auth.json)",
       "Edit(./_local/codex_homes/auth.json)",
-      "Edit(./.claude/settings.json)",
+      "Edit(./.claude/settings.local.json)",
       "Edit(./.git)",
       "Edit(./.git/**)",
       "Read(~/.claude.json)",
@@ -31,13 +31,13 @@
       ],
       "denyRead": [
         "~/.claude.json",
-        "/workspace/_local/claude.json",
+        "/workspace/_local/claude_homes/claude.json",
         "/workspace/_local/codex_homes/auth.json"
       ],
       "denyWrite": [
         "/workspace/.git",
         "/workspace/.git/**",
-        "/workspace/.claude/settings.json"
+        "/workspace/.claude/settings.local.json"
       ]
     },
     "credentials": {

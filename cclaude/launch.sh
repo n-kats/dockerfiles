@@ -92,10 +92,10 @@ if [ "$show_init_help" -eq 1 ]; then
   echo "[_local/claude.sh]"
   cat "${samples_dir}/claude.sh"
   echo ""
-  echo "[_local/claude.json]"
+  echo "[_local/claude_homes/claude.json]"
   cat "${samples_dir}/claude.json"
   echo ""
-  echo "[.claude/settings.json]"
+  echo "[.claude/settings.local.json]"
   cat "${samples_dir}/settings.json"
   echo ""
   echo "[_local/setup_claude.sh]"
@@ -106,6 +106,7 @@ fi
 if [ "$do_init" -eq 1 ]; then
   samples_dir="${this_script_dir}/samples"
   local_dir="${work_dir}/_local"
+  claude_homes_dir="${local_dir}/claude_homes"
   settings_dir="${work_dir}/.claude"
 
   if [ ! -d "$work_dir" ]; then
@@ -154,7 +155,7 @@ if [ "$do_init" -eq 1 ]; then
   echo "[INFO] 初期化: $(relpath_in_workdir "$local_dir")"
   mkdir -p "$local_dir"
 
-  for file in claude.sh claude.json setup_claude.sh; do
+  for file in claude.sh setup_claude.sh; do
     src="${samples_dir}/${file}"
     dst="${local_dir}/${file}"
     if [ -e "$dst" ]; then
@@ -170,8 +171,23 @@ if [ "$do_init" -eq 1 ]; then
     echo "[INFO] 作成: $(relpath_in_workdir "$dst")"
   done
 
+  src="${samples_dir}/claude.json"
+  dst="${claude_homes_dir}/claude.json"
+  mkdir -p "$claude_homes_dir"
+  if [ -e "$dst" ]; then
+    if cmp -s "$src" "$dst"; then
+      echo "[INFO] スキップ（既存）: $(relpath_in_workdir "$dst")"
+    else
+      open_diff_editor "$src" "$dst"
+      echo "[INFO] 更新: $(relpath_in_workdir "$dst")"
+    fi
+  else
+    cp "$src" "$dst"
+    echo "[INFO] 作成: $(relpath_in_workdir "$dst")"
+  fi
+
   src="${samples_dir}/settings.json"
-  dst="${settings_dir}/settings.json"
+  dst="${settings_dir}/settings.local.json"
   mkdir -p "$settings_dir"
   if [ -e "$dst" ]; then
     if cmp -s "$src" "$dst"; then
@@ -183,6 +199,15 @@ if [ "$do_init" -eq 1 ]; then
   else
     cp "$src" "$dst"
     echo "[INFO] 作成: $(relpath_in_workdir "$dst")"
+  fi
+
+  gitignore_file="${settings_dir}/.gitignore"
+  if [ ! -f "$gitignore_file" ]; then
+    printf '%s\n' "settings.local.json" >"$gitignore_file"
+    echo "[INFO] 作成: $(relpath_in_workdir "$gitignore_file")"
+  elif ! grep -Fxq "settings.local.json" "$gitignore_file"; then
+    printf '\n%s\n' "settings.local.json" >>"$gitignore_file"
+    echo "[INFO] 追記: $(relpath_in_workdir "$gitignore_file")"
   fi
 
   chmod +x "${local_dir}/claude.sh" "${local_dir}/setup_claude.sh" 2>/dev/null || true

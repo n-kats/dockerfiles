@@ -17,6 +17,6 @@ if [ -z "$litellm_url" ]; then
 fi
 
 cclaude "$@" \
-  --claude-json "_local/claude.json" \
+  --claude-json "_local/claude_homes/claude.json" \
   --setup "_local/setup_claude.sh" \
   "${options[@]}"
