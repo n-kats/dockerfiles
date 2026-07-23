@@ -1,17 +1,22 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_DISABLE_FAST_MODE": "1",
+    "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "0"
+  },
   "permissions": {
     "defaultMode": "bypassPermissions",
     "deny": [
-      "Read(./_local/claude_homes/claude.json)",
-      "Edit(./_local/claude_homes/claude.json)",
-      "Read(./_local/codex_homes/auth.json)",
-      "Edit(./_local/codex_homes/auth.json)",
-      "Edit(./.claude/settings.local.json)",
-      "Edit(./.git)",
-      "Edit(./.git/**)",
-      "Read(~/.claude.json)",
-      "Edit(~/.claude.json)"
+      "Read(//workspace/_local/claude_homes/claude.json)",
+      "Edit(//workspace/_local/claude_homes/claude.json)",
+      "Read(//workspace/_local/codex_homes/auth.json)",
+      "Edit(//workspace/_local/codex_homes/auth.json)",
+      "Edit(//workspace/.claude/settings.local.json)",
+      "Read(//workspace/.claude/settings.local.json)",
+      "Edit(//workspace/.git)",
+      "Edit(//workspace/.git/**)",
+      "Read(//home/ubuntu/.claude.json)",
+      "Edit(//home/ubuntu/.claude.json)"
     ]
   },
   "sandbox": {
@@ -22,6 +27,7 @@
     "enableWeakerNestedSandbox": true,
     "filesystem": {
       "allowWrite": [
+        "/home/.mcp.json",
         "~/.cache",
         "~/.local",
         "~/.claude",
@@ -31,13 +37,19 @@
       ],
       "denyRead": [
         "~/.claude.json",
+        "/workspace/.git",
+        "/workspace/.git/**",
         "/workspace/_local/claude_homes/claude.json",
-        "/workspace/_local/codex_homes/auth.json"
+        "/workspace/_local/codex_homes/auth.json",
+        "/workspace/.claude/settings.local.json"
       ],
       "denyWrite": [
         "/workspace/.git",
         "/workspace/.git/**",
-        "/workspace/.claude/settings.local.json"
+        "/workspace/_local/claude_homes/claude.json",
+        "/workspace/_local/codex_homes/auth.json",
+        "/workspace/.claude/settings.local.json",
+        "~/.claude.json"
       ]
     },
     "credentials": {

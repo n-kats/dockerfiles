@@ -16,7 +16,10 @@ if [ -z "$litellm_url" ]; then
   litellm_url="http://127.0.0.1:4000"
 fi
 
+mkdir -p _local/claude_homes
+
 cclaude "$@" \
+  --claude-home "_local/claude_homes" \
   --claude-json "_local/claude_homes/claude.json" \
   --setup "_local/setup_claude.sh" \
   "${options[@]}"

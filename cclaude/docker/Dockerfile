@@ -80,18 +80,15 @@ RUN set -eux; \
   if ! getent group ubuntu >/dev/null; then groupadd -g 1000 ubuntu; fi; \
   if ! id -u ubuntu >/dev/null 2>&1; then useradd -m -u 1000 -g ubuntu -s /bin/bash ubuntu; fi
 
+RUN touch /home/.mcp.json \
+ && chmod 0666 /home/.mcp.json
+
 ARG TIMESTAMP=YYYYMMDD_HHMMSS
 RUN touch /build_timestamp_$TIMESTAMP
 RUN set -eux; \
-  install_claude_code() { \
-    local user="$1"; \
-    local home="/home/$user"; \
-    mkdir -p "$home/.local"; \
-    chown -R "$user:$user" "$home/.local"; \
-    su -s /bin/bash "$user" -c "HOME='$home' npm_config_prefix='$home/.local' npm install -g @anthropic-ai/claude-code"; \
-    chown -R "$user:$user" "$home/.local"; \
-  }; \
-  install_claude_code ubuntu
+  mkdir -p /opt/claude-code; \
+  npm install --global --prefix /opt/claude-code @anthropic-ai/claude-code; \
+  chmod -R a+rX /opt/claude-code
 
 COPY run_claude.sh /usr/local/bin/claude
 RUN chmod 0755 /usr/local/bin/claude

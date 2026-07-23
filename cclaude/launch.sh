@@ -13,9 +13,13 @@ LITELLM_URL=""
 litellm_url_set=0
 setup_script=""
 claude_json=""
+mcp_json=""
+claude_home_dir=""
 host_gitconfig=""
 docker_options=()
-options=()
+options=(
+  "--dangerously-skip-permissions"
+)
 input_tmpfile=""
 if [ ! -t 0 ]; then
   input_tmpfile="$(mktemp)"
@@ -52,6 +56,14 @@ for arg in "$@"; do
       ;;
     --claude-json)
       claude_json="$2"
+      skip=1
+      ;;
+    --claude-home)
+      claude_home_dir="$(realpath -m "$2")"
+      skip=1
+      ;;
+    --mcp-json)
+      mcp_json="$2"
       skip=1
       ;;
     --gitconfig)
@@ -95,8 +107,14 @@ if [ "$show_init_help" -eq 1 ]; then
   echo "[_local/claude_homes/claude.json]"
   cat "${samples_dir}/claude.json"
   echo ""
+  echo "[_local/claude_homes/settings.json]"
+  cat "${samples_dir}/claude_settings.json"
+  echo ""
   echo "[.claude/settings.local.json]"
   cat "${samples_dir}/settings.json"
+  echo ""
+  echo "[_local/claude_keybindings.json]"
+  cat "${samples_dir}/keybindings.json"
   echo ""
   echo "[_local/setup_claude.sh]"
   cat "${samples_dir}/setup_claude.sh"
@@ -107,6 +125,7 @@ if [ "$do_init" -eq 1 ]; then
   samples_dir="${this_script_dir}/samples"
   local_dir="${work_dir}/_local"
   claude_homes_dir="${local_dir}/claude_homes"
+  keybindings_file="${local_dir}/claude_keybindings.json"
   settings_dir="${work_dir}/.claude"
 
   if [ ! -d "$work_dir" ]; then
@@ -171,9 +190,37 @@ if [ "$do_init" -eq 1 ]; then
     echo "[INFO] 作成: $(relpath_in_workdir "$dst")"
   done
 
+  src="${samples_dir}/keybindings.json"
+  dst="$keybindings_file"
+  if [ -e "$dst" ]; then
+    if cmp -s "$src" "$dst"; then
+      echo "[INFO] スキップ（既存）: $(relpath_in_workdir "$dst")"
+    else
+      open_diff_editor "$src" "$dst"
+      echo "[INFO] 更新: $(relpath_in_workdir "$dst")"
+    fi
+  else
+    cp "$src" "$dst"
+    echo "[INFO] 作成: $(relpath_in_workdir "$dst")"
+  fi
+
   src="${samples_dir}/claude.json"
   dst="${claude_homes_dir}/claude.json"
   mkdir -p "$claude_homes_dir"
+  if [ -e "$dst" ]; then
+    if cmp -s "$src" "$dst"; then
+      echo "[INFO] スキップ（既存）: $(relpath_in_workdir "$dst")"
+    else
+      open_diff_editor "$src" "$dst"
+      echo "[INFO] 更新: $(relpath_in_workdir "$dst")"
+    fi
+  else
+    cp "$src" "$dst"
+    echo "[INFO] 作成: $(relpath_in_workdir "$dst")"
+  fi
+
+  src="${samples_dir}/claude_settings.json"
+  dst="${claude_homes_dir}/settings.json"
   if [ -e "$dst" ]; then
     if cmp -s "$src" "$dst"; then
       echo "[INFO] スキップ（既存）: $(relpath_in_workdir "$dst")"
@@ -214,15 +261,12 @@ if [ "$do_init" -eq 1 ]; then
   exit 0
 fi
 
-if [ -z "$CLAUDE_CACHE_DIR" ]; then
-  echo "[ERROR] CLAUDE_CACHE_DIR が設定されていません"
-  exit 1
+if [ -z "$claude_home_dir" ]; then
+  claude_home_dir="$work_dir/_local/claude_homes"
 fi
-
-cache_dir="$(realpath -m "$CLAUDE_CACHE_DIR")"
-mkdir -p "$cache_dir"
-if [ ! -d "$cache_dir" ]; then
-  echo "[ERROR] CLAUDE_CACHE_DIR がディレクトリではありません: $cache_dir"
+mkdir -p "$claude_home_dir"
+if [ ! -d "$claude_home_dir" ]; then
+  echo "[ERROR] --claude-home がディレクトリではありません: $claude_home_dir"
   exit 1
 fi
 
@@ -230,6 +274,9 @@ if [ ! -d "$work_dir" ]; then
   echo "[ERROR] 作業ディレクトリが存在しません: $work_dir"
   exit 1
 fi
+
+keybindings_file="$work_dir/_local/claude_keybindings.json"
+claude_settings_file="$work_dir/_local/claude_homes/settings.json"
 
 if [ -n "$claude_json" ]; then
   if [[ "$claude_json" == "~/"* ]]; then
@@ -241,7 +288,7 @@ if [ -n "$claude_json" ]; then
     exit 1
   fi
 else
-  claude_json="$cache_dir/mount/user/ubuntu/claude.json"
+  claude_json="$claude_home_dir/claude.json"
   claude_json_dir="$(dirname "$claude_json")"
   if [ ! -d "$claude_json_dir" ]; then
     echo "[INFO] ディレクトリを作成: $claude_json_dir"
@@ -251,6 +298,33 @@ else
     echo "[INFO] ファイルを作成: $claude_json"
     printf '%s\n' '{}' > "$claude_json"
   fi
+fi
+
+if [ -n "$mcp_json" ]; then
+  if [[ "$mcp_json" == "~/"* ]]; then
+    mcp_json="$HOME/${mcp_json#~/}"
+  fi
+  mcp_json="$(realpath -m "$mcp_json")"
+  if [ ! -f "$mcp_json" ]; then
+    echo "[ERROR] mcp.json が見つかりません: $mcp_json"
+    exit 1
+  fi
+else
+  mcp_json="$claude_home_dir/.mcp.json"
+  mcp_json_dir="$(dirname "$mcp_json")"
+  if [ ! -d "$mcp_json_dir" ]; then
+    echo "[INFO] ディレクトリを作成: $mcp_json_dir"
+    mkdir -p "$mcp_json_dir"
+  fi
+  if [ ! -f "$mcp_json" ]; then
+    echo "[INFO] ファイルを作成: $mcp_json"
+    printf '%s\n' '{}' > "$mcp_json"
+  fi
+fi
+
+if [ -f "$mcp_json" ] && [ ! -s "$mcp_json" ]; then
+  echo "[INFO] 空ファイルのため初期化: $mcp_json"
+  printf '%s\n' '{}' > "$mcp_json"
 fi
 
 # Build image automatically if it does not exist
@@ -280,8 +354,9 @@ if [ -n "$input_tmpfile" ]; then
 fi
 
 docker_options+=("-e" "HOME=/home/ubuntu")
+docker_options+=("-e" "CLAUDE_CONFIG_DIR=/home/ubuntu/.claude")
 
-mount_dir="$cache_dir/mount/user/ubuntu"
+mount_dir="$claude_home_dir"
 
 for dir in \
   claude_cache:.cache \
@@ -300,10 +375,17 @@ for dir in \
   docker_options+=("-v" "$full_path:/home/ubuntu/$path")
 done
 docker_options+=("-v" "$claude_json:/home/ubuntu/.claude.json")
+docker_options+=("-v" "$mcp_json:/home/ubuntu/.mcp.json")
+if [ -f "$claude_settings_file" ]; then
+  docker_options+=("-v" "$claude_settings_file:/home/ubuntu/.claude/settings.json:ro")
+fi
+if [ -f "$keybindings_file" ]; then
+  docker_options+=("-v" "$keybindings_file:/home/ubuntu/.claude/keybindings.json")
+fi
 
 if [ "$show_help" -eq 1 ]; then
   cat << EOF
-使い方: cclaude [--update] [--workdir <dir>] [--setup <script>] [--litellm-url <url>] [--env-file <file>] [--claude-json <file>] [--gitconfig <path>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のclaudeオプション]
+使い方: cclaude [--update] [--workdir <dir>] [--setup <script>] [--litellm-url <url>] [--env-file <file>] [--claude-json <file>] [--claude-home <dir>] [--gitconfig <path>] [-e <VAR=VAL>] [-v <SRC:DEST>] [その他のclaudeオプション]
 
 オプション:
   --update              Claude CLI のDockerイメージを更新して起動
@@ -312,6 +394,7 @@ if [ "$show_help" -eq 1 ]; then
   --litellm-url <url>   LiteLLM のベースURL（指定時のみLiteLLM経由にする）
   --env-file <file>     Dockerコンテナに環境変数を渡す
   --claude-json <file>  claude.json を指定してマウントする
+  --claude-home <dir>   ~/.cache, ~/.local, ~/.claude, ~/.npm, ~/.pnpm-store, ~/.bun をまとめて <dir> 以下からマウント（省略時は <workdir>/_local/claude_homes）
   --gitconfig <path>    ホストの gitconfig を /tmp/host_gitconfig に読み取り専用でマウント（コンテナ側のglobal設定からinclude）
   -e, --env <VAR=VAL>   Dockerコンテナに環境変数を渡す
   -v, --volume <SRC:DEST> Dockerコンテナにボリュームをマウントする
@@ -334,8 +417,9 @@ fi
 docker_options+=("-e" "NO_COLOR=1")
 docker_options+=("-e" "FORCE_COLOR=0")
 docker_options+=("-e" "DISABLE_AUTOUPDATER=1")
+docker_options+=("-e" "CLAUDE_CODE_DISABLE_FAST_MODE=1")
 docker_options+=("-e" "GIT_OPTIONAL_LOCKS=0")
-docker_options+=("-e" "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1")
+docker_options+=("-e" "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=0")
 
 command_str="claude ${options[@]}"
 
@@ -350,9 +434,15 @@ docker run --rm \
   --security-opt seccomp=unconfined \
   --security-opt apparmor=unconfined \
   --cap-add NET_ADMIN \
+  --cap-add SYS_ADMIN \
   "${docker_options[@]}" \
   "$image_name" bash -c "
 umask 000
+export HOME=/home/ubuntu
+export CLAUDE_CONFIG_DIR=/home/ubuntu/.claude
+export USER=ubuntu
+export LOGNAME=ubuntu
+export XDG_CONFIG_HOME=/home/ubuntu/.config
 export GIT_CONFIG_GLOBAL=\"/home/ubuntu/.config/git/config\"
 mkdir -p \"\$(dirname \"\$GIT_CONFIG_GLOBAL\")\"
 touch \"\$GIT_CONFIG_GLOBAL\"
