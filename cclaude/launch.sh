@@ -9,6 +9,7 @@ skip=0
 show_help=0
 show_init_help=0
 do_init=0
+no_color=0
 LITELLM_URL=""
 litellm_url_set=0
 setup_script=""
@@ -80,6 +81,9 @@ for arg in "$@"; do
       ;;
     --init)
       do_init=1
+      ;;
+    --no-color)
+      no_color=1
       ;;
     --init-help)
       show_init_help=1
@@ -377,7 +381,7 @@ done
 docker_options+=("-v" "$claude_json:/home/ubuntu/.claude.json")
 docker_options+=("-v" "$mcp_json:/home/ubuntu/.mcp.json")
 if [ -f "$claude_settings_file" ]; then
-  docker_options+=("-v" "$claude_settings_file:/home/ubuntu/.claude/settings.json:ro")
+  docker_options+=("-v" "$claude_settings_file:/home/ubuntu/.claude/settings.json")
 fi
 if [ -f "$keybindings_file" ]; then
   docker_options+=("-v" "$keybindings_file:/home/ubuntu/.claude/keybindings.json")
@@ -400,6 +404,7 @@ if [ "$show_help" -eq 1 ]; then
   -v, --volume <SRC:DEST> Dockerコンテナにボリュームをマウントする
   --init                _local/ と .claude/ に設定ファイルを作成（同一ならスキップ、差分は \$EDITOR -d で確認）
   --init-help           初期化手順のヘルプを表示
+  --no-color            色出力を無効化（NO_COLOR=1, FORCE_COLOR=0 を渡す）
   --help                このヘルプメッセージとclaudeのヘルプを表示
 EOF
 fi
@@ -414,8 +419,10 @@ if [ "$litellm_url_set" -eq 1 ] && [ -n "$LITELLM_URL" ]; then
   docker_options+=("-e" "ANTHROPIC_BASE_URL=$LITELLM_URL")
 fi
 
-docker_options+=("-e" "NO_COLOR=1")
-docker_options+=("-e" "FORCE_COLOR=0")
+if [ "$no_color" -eq 1 ]; then
+  docker_options+=("-e" "NO_COLOR=1")
+  docker_options+=("-e" "FORCE_COLOR=0")
+fi
 docker_options+=("-e" "DISABLE_AUTOUPDATER=1")
 docker_options+=("-e" "CLAUDE_CODE_DISABLE_FAST_MODE=1")
 docker_options+=("-e" "GIT_OPTIONAL_LOCKS=0")

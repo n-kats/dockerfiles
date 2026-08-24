@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     less \
     libcap2-bin \
     make \
+    ncurses-term \
     pipx \
     pkg-config \
     python3 \

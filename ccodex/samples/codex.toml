@@ -1,6 +1,5 @@
 model = "gpt-5.6-luna"
-context_window = 272000
-model_reasoning_effort = "medium"
+model_reasoning_effort = "max"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 custom.user_shell.no_inject=true
@@ -69,6 +68,7 @@ del_line_bg = "#cccccc"
 "/workspace" = "write"
 "/workspace/_local/codex_homes/auth.json" = "deny"
 "/workspace/_local/claude.json" = "deny"
+"/tmp" = "write"
 
 [permissions.default.network]
 enabled = true

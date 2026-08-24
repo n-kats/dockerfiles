@@ -16,7 +16,8 @@
       "Edit(//workspace/.git)",
       "Edit(//workspace/.git/**)",
       "Read(//home/ubuntu/.claude.json)",
-      "Edit(//home/ubuntu/.claude.json)"
+      "Edit(//home/ubuntu/.claude.json)",
+      "Edit(//home/ubuntu/.claude/settings.json)"
     ]
   },
   "sandbox": {
@@ -49,7 +50,8 @@
         "/workspace/_local/claude_homes/claude.json",
         "/workspace/_local/codex_homes/auth.json",
         "/workspace/.claude/settings.local.json",
-        "~/.claude.json"
+        "~/.claude.json",
+        "~/.claude/settings.json"
       ]
     },
     "credentials": {
