@@ -94,15 +94,17 @@ RUN set -eux; \
   tar -xzf "${archive_path}" -C "${tmp_dir}/extract"; \
   if [ -f "${tmp_dir}/extract/codex" ]; then \
     install -m 0755 "${tmp_dir}/extract/codex" /usr/local/bin/codex; \
-    install -m 0755 "${tmp_dir}/extract/codex-code-mode-host" /usr/local/bin/codex-code-mode-host; \
+    if [ -f "${tmp_dir}/extract/codex-code-mode-host" ]; then \
+      install -m 0755 "${tmp_dir}/extract/codex-code-mode-host" /usr/local/bin/codex-code-mode-host; \
+    fi; \
   else \
     bin_path="$(find "${tmp_dir}/extract" -type f -name codex -perm -111 | head -n 1)"; \
     bin_code_mode_host="$(dirname "$bin_path")/codex-code-mode-host"; \
     if [ -z "$bin_path" ]; then echo "'codex' binary not found in archive" >&2; exit 1; fi; \
     install -m 0755 "$bin_path" /usr/local/bin/codex; \
     if [ -f "$bin_code_mode_host" ]; then \
-      install -m 0755 "$bin_path_code_mode_host" /usr/local/bin/codex-code-mode-host; \
-    fi;
+      install -m 0755 "$bin_code_mode_host" /usr/local/bin/codex-code-mode-host; \
+    fi; \
   fi; \
   setcap 'cap_setuid,cap_setgid=ep' /usr/local/bin/codex; \
   getcap /usr/local/bin/codex; \
