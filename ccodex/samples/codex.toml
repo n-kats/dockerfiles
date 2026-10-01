@@ -1,4 +1,4 @@
-model = "gpt-5.6-luna"
+model = "gpt-6-luna"
 model_reasoning_effort = "max"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
@@ -15,13 +15,10 @@ use_memories = false
 [features]
 unified_exec = true
 
-[tui.keymap.composer]
-submit = ["ctrl-enter", "ctrl-j"]
-
-[tui.keymap.editor]
-insert_newline = "enter"
-
 [tui]
+screen_reader_detection_done = true
+alternate_screen = "never"
+auto_recap = false
 status_line = [
   "model-with-reasoning",
   "fast-mode",
@@ -29,6 +26,12 @@ status_line = [
   "five-hour-limit",
   "weekly-limit",
 ]
+
+[tui.keymap.composer]
+submit = ["ctrl-enter", "ctrl-j"]
+
+[tui.keymap.editor]
+insert_newline = "enter"
 
 [shell_environment_policy]
 inherit = "core"
