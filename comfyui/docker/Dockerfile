@@ -27,7 +27,7 @@ RUN echo "$TIMESTAMP" >/build_timestamp
 
 RUN git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git /home/ubuntu/ComfyUI
 WORKDIR /home/ubuntu/ComfyUI
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt && pip install "gguf>=0.13.0" sentencepiece protobuf
 
 EXPOSE 8188
 
